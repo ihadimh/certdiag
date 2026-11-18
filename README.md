@@ -410,6 +410,28 @@ python -m certdiag app.exe --revoke=cache   # 毫秒级，缓存命中才有结�
 python -m certdiag app.exe --revoke=auto    # 推荐：先探路再决定要不要查
 ```
 
+同一个文件（Packet Tracer）三种档位的实际输出：
+
+```
+# off —— 2.7 秒，明确说没查
+结论：✅ 有效 — 签名与证书链有效；未检查吊销状态（--revoke=off）
+分类：valid_revocation_unchecked  置信度：medium
+吊销：未检查（--revoke=off）
+
+# cache —— 3.3 秒，本机缓存里没有 CRL 时应如实说"无法确认"
+结论：⚠️ 无法判定 — 吊销状态未知（系统链报告 OfflineRevocation）
+分类：revocation_unverified  置信度：medium
+吊销：未检查（系统链报告 OfflineRevocation）
+
+# auto —— 4.9 秒，探测到地址可达后真的联网查了
+结论：✅ 有效 — 签名、证书链与吊销状态均已检查通过
+分类：valid_revocation_checked_ok  置信度：high
+吊销：已检查（正常）
+```
+
+> `cache` 档有个副作用：用 `auto` 查过一次之后，CRL 进了本地缓存，再跑 `cache` 就能命中并给出
+> `checked_ok`。这不矛盾——缓存命中本来就是吊销检查的正常路径之一。
+
 `auto` 是关键的一档——它把 `probe.py` 的角色从"推断吊销"降级为"决定值不值得查"：
 
 ```

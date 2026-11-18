@@ -231,15 +231,17 @@ def diagnose(inp: DiagInput) -> Diagnosis:
                     "判断影响：吊销状态无法确认 ≠ 证书已失效",
                 ],
                 evidence=evidence + [f"{p.get('url')} → {p.get('detail')}" for p in bad_crl][:6])
-        if bad_ocsp or _inconclusive(inp.probes):
+        rev_reason = (inp.revocation or {}).get("reason") or ""
+        if bad_ocsp or _inconclusive(inp.probes) or rev_reason:
             return Diagnosis(
                 category="revocation_unverified", verdict=VERDICT_UNKNOWN,
-                cause="吊销状态未能验证：CRL 地址可达，但 OCSP 端点无法用普通 GET 判定（属正常）",
+                cause=(f"吊销状态未知（{rev_reason}）" if rev_reason else
+                       "吊销状态未能验证：CRL 地址可达，但 OCSP 端点无法用普通 GET 判定（属正常）"),
                 confidence="medium",
                 advice=[
-                    "这种情况通常说明网络没问题，是探测手段的局限",
-                    "以 signtool verify /pa /v 或系统实际验证结果为准",
-                    "若系统报 OfflineRevocation，再按「吊销地址不可达」处理",
+                    "换用 --revoke=auto 让工具先探路再联网查，或用 signtool verify /pa /v 复核",
+                    "以系统实际验证结果为准",
+                    "若系统持续报 OfflineRevocation，再按「吊销地址不可达」处理",
                 ],
                 evidence=evidence)
         if inp.offline:

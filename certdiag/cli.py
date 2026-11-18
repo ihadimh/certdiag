@@ -96,11 +96,21 @@ def diagnose_one(path: Path, offline: bool, no_probe: bool, timeout: float,
         collected["hresult_desc"] = wv.get("desc")
         wv = wv_verify(str(path), offline=offline, revoke=effective)
 
-    revoked = bool(wv.get("hresult") == 0x800B010C) or any(
-        (x.get("status") or "").lower() == "revoked"
-        for x in ((collected.get("chain") or {}).get("chain_status") or []))
+    chain_status = (collected.get("chain") or {}).get("chain_status") or []
+    statuses = {(x.get("status") or "").lower() for x in chain_status}
+
+    revoked = bool(wv.get("hresult") == 0x800B010C) or "revoked" in statuses
+
+    # checked 不能只看"档位不是 off"：链可能报告吊销状态无法确认（缓存未命中、
+    # 地址不可达）。那种情况必须算"没查成"，否则结论和末行会自相矛盾。
+    rev_unknown_flags = {"offlinerevocation", "revocationstatusunknown", "revocationunknown"}
+    rev_undetermined = bool(statuses & rev_unknown_flags)
+    checked = effective != "off" and not rev_undetermined
+    if effective != "off" and rev_undetermined and not reason:
+        reason = "系统链报告 OfflineRevocation"
+
     revocation = revoke_policy.summarize(revoke_mode, effective,
-                                         checked=effective != "off",
+                                         checked=checked,
                                          revoked=revoked, reason=reason)
     collected["revocation"] = revocation
 
