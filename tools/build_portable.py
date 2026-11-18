@@ -102,28 +102,56 @@ def patch_pth(runtime: Path) -> None:
 LAUNCH_UI = r"""@echo off
 chcp 65001 >nul
 cd /d "%~dp0"
+
+if not exist "%~dp0runtime\pythonw.exe" goto missing
 start "" "%~dp0runtime\pythonw.exe" -m certdiag --ui
+exit /b
+
+:missing
+echo.
+echo   [错误] 找不到 runtime\pythonw.exe
+echo.
+echo   请先把压缩包【完整解压】到一个文件夹，再双击里面的本文件。
+echo   直接在压缩包预览窗口里双击时，找不到同目录的 runtime。
+echo.
+pause
+exit /b 1
 """
 
 LAUNCH_CLI = r"""@echo off
 chcp 65001 >nul
 cd /d "%~dp0"
-if "%~1"=="" (
-    echo   把文件或文件夹拖到本文件上，即可直接诊断
-    echo   或运行 双击启动.cmd 打开图形界面
-    echo.
-    pause
-    exit /b 0
-)
+
+if not exist "%~dp0runtime\python.exe" goto missing
+if "%~1"=="" goto usage
+
 "%~dp0runtime\python.exe" -m certdiag "%~1"
 echo.
-echo   按任意键关闭…
+echo   按任意键关闭...
 pause >nul
+exit /b
+
+:usage
+echo.
+echo   把文件或文件夹【拖到本文件上】，即可直接诊断
+echo   或双击「双击启动」打开图形界面
+echo.
+pause
+exit /b 0
+
+:missing
+echo.
+echo   [错误] 找不到 runtime\python.exe
+echo.
+echo   请先把压缩包【完整解压】到一个文件夹，再运行本文件。
+echo.
+pause
+exit /b 1
 """
 
 
 def write_cmd(path: Path, text: str) -> None:
-    path.write_text(text.replace("\n", "\r\n"), encoding="gbk", errors="replace")
+    path.write_text(text.replace("\n", "\r\n"), encoding="utf-8")
     print(f"[+] {path.name}")
 
 
