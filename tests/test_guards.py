@@ -8,6 +8,7 @@
 - --require-signature 门禁真的拦得住未签名文件
 """
 import unittest
+from pathlib import Path
 
 from certdiag.attrib import DiagInput, diagnose
 from certdiag.cli import without_signature
@@ -101,3 +102,78 @@ class TestTimestampOids(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class TestAuditFixes(unittest.TestCase):
+    """2026-11-19 全量审计发现的问题，逐条钉住。"""
+
+    def test_redirects_are_not_followed(self):
+        # 跟随 302 可以绕过内网地址拦截
+        from certdiag.probe import _NoRedirect
+
+        h = _NoRedirect()
+        self.assertIsNone(h.redirect_request(None, None, 302, "", {}, "http://127.0.0.1/"))
+
+    def test_json_envelope_is_stable(self):
+        # 单文件和多文件都必须是同一层结构，否则脚本消费会炸
+        from certdiag.report import dump_json
+        import json
+        import tempfile
+
+        payload = {"schema_version": 1, "tool": "certdiag",
+                   "tool_version": "x", "count": 1, "reports": [{"a": 1}]}
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td) / "r.json"
+            dump_json(payload, str(out))
+            data = json.loads(out.read_text(encoding="utf-8"))
+        self.assertEqual(sorted(data), ["count", "reports", "schema_version", "tool", "tool_version"])
+
+    def test_markdown_table_escapes_pipe(self):
+        from certdiag.report import _cell
+
+        self.assertEqual(_cell("a|b"), "a\\|b")
+        self.assertEqual(_cell("a\nb"), "a b")
+
+    def test_error_code_names_are_correct(self):
+        from certdiag.attrib import HRESULT_MAP
+        from certdiag.winverify import CODES
+
+        self.assertEqual(HRESULT_MAP[0x800B010D][0], "CERT_E_UNTRUSTEDTESTROOT")
+        self.assertEqual(HRESULT_MAP[0x80092013][0], "CRYPT_E_REVOCATION_OFFLINE")
+        self.assertEqual(CODES[0x800B010D][0], "CERT_E_UNTRUSTEDTESTROOT")
+        self.assertEqual(CODES[0x80092013][0], "CRYPT_E_REVOCATION_OFFLINE")
+
+class TestPeInspection(unittest.TestCase):
+    """损坏的 exe 不能被说成"这个类型没有签名"。"""
+
+    def test_not_a_pe(self):
+        from certdiag.pe import inspect
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as td:
+            f = Path(td) / "x.exe"
+            f.write_bytes(b"hello world")
+            self.assertFalse(inspect(str(f))["is_pe"])
+
+    def test_truncated_pe_detected(self):
+        import os
+        import tempfile
+
+        from certdiag.pe import inspect
+
+        src = Path(__file__).resolve().parent.parent / "samples" / "signed_ok.exe"
+        if not src.exists():
+            self.skipTest("样本不存在")
+        with tempfile.TemporaryDirectory() as td:
+            f = Path(td) / "t.exe"
+            f.write_bytes(src.read_bytes()[:8192])
+            r = inspect(str(f))
+            self.assertTrue(r["is_pe"])
+            self.assertTrue(r["truncated"])
+            os.unlink(f)
+
+    def test_bad_extension_name_check(self):
+        from certdiag.pe import looks_like_pe_name
+
+        self.assertTrue(looks_like_pe_name("a.EXE"))
+        self.assertTrue(looks_like_pe_name("b.sys"))
+        self.assertFalse(looks_like_pe_name("c.ps1"))

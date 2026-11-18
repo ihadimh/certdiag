@@ -23,7 +23,8 @@ HRESULT_MAP: dict[int, tuple[str, str]] = {
     0x800B0109: ("CERT_E_UNTRUSTEDROOT", "根证书不受信任或不在信任库中"),
     0x800B010A: ("CERT_E_CHAINING", "无法构建到受信任根的证书链"),
     0x800B010C: ("CERT_E_REVOKED", "证书已被吊销"),
-    0x800B010D: ("CRYPT_E_REVOCATION_OFFLINE", "吊销状态无法获取（CRL/OCSP 离线或不可达）"),
+    0x800B010D: ("CERT_E_UNTRUSTEDTESTROOT", "证书链终止于“测试根”，该根不在生产信任范围"),
+    0x80092013: ("CRYPT_E_REVOCATION_OFFLINE", "吊销状态无法获取（CRL/OCSP 离线或不可达）"),
     0x800B010E: ("CERT_E_REVOCATION_FAILURE", "吊销检查失败"),
     0x800B0111: ("TRUST_E_EXPLICIT_DISTRUST", "该证书被显式标记为不信任"),
     0x80096010: ("TRUST_E_BAD_DIGEST", "文件内容与签名不匹配（被修改或损坏）"),
@@ -67,6 +68,7 @@ class DiagInput:
     catalog: dict = field(default_factory=dict)
     timestamp: dict = field(default_factory=dict)
     revocation: dict = field(default_factory=dict)
+    pe: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -121,6 +123,41 @@ def diagnose(inp: DiagInput) -> Diagnosis:
         evidence.append("证书链标志：" + "、".join(sorted(flags)))
     if bad:
         evidence.append(f"吊销查询失败：{_hosts(bad)}")
+
+    # -2) PE 结构本身有问题：这比"有没有签名"更靠前
+    #     Get-AuthenticodeSignature 对损坏/截断的 exe 只会给 UnknownError 或 NotSigned，
+    #     直接按状态归因会把"文件坏了"说成"这个类型没有签名概念"。
+    pe_info = inp.pe or {}
+    if pe_info and st != "Valid":
+        if not pe_info.get("is_pe"):
+            return Diagnosis(
+                category="not_pe_file", verdict=VERDICT_UNKNOWN,
+                cause="扩展名是程序文件，但内容不是有效的 PE 结构（可能已损坏或改了扩展名）",
+                confidence="medium",
+                advice=["重新获取该文件，先排除下载不完整",
+                        "如果确实不是程序，改成正确的扩展名再看"],
+                evidence=evidence + [f"PE 检测：{pe_info.get('reason') or '非 PE'}"])
+        if pe_info.get("truncated"):
+            return Diagnosis(
+                category="corrupt_pe", verdict=VERDICT_UNKNOWN,
+                cause="PE 结构不完整（文件可能被截断或损坏），无法判断签名",
+                confidence="medium",
+                advice=["重新下载或从原始介质复制该文件",
+                        "哈希对不上原始发布值时，优先怀疑传输/存储损坏"],
+                evidence=evidence + [f"PE 检测：{pe_info.get('reason') or '结构异常'}"])
+
+    # -1) 已吊销：强否定证据，必须先于有效期/时间戳等一切分支
+    #     理由：证书被吊销后，"签名时刻有效"不再成立，不能被时间戳分支判成 valid
+    rev_early = inp.revocation or {}
+    chain_flags_early = set(inp.chain_flags)
+    if rev_early.get("state") == "revoked" or "Revoked" in chain_flags_early:
+        return Diagnosis(
+            category="revoked", verdict=VERDICT_INVALID,
+            cause="证书已被吊销（签名者证书或链上证书出现在 CRL/OCSP 吊销列表中）",
+            confidence="high",
+            advice=["不要运行该文件；从官方渠道重新获取",
+                    "若确认是误吊销，联系签发机构核实"],
+            evidence=evidence + ["吊销检查：已吊销"])
 
     # 0) 只有这三种码能单独定性；其余交给"状态 + 链 + 探测"交叉判断
     #    （WinVerifyTrust 只看嵌入式签名，对目录签名文件会返回 NOSIGNATURE，
@@ -424,7 +461,8 @@ def diagnose(inp: DiagInput) -> Diagnosis:
 def diagnose_from_collect(collected: dict, probes: list[dict], offline: bool = False,
                           catalog: dict | None = None,
                           timestamp: dict | None = None,
-                          revocation: dict | None = None) -> Diagnosis:
+                          revocation: dict | None = None,
+                          pe: dict | None = None) -> Diagnosis:
     """从采集器的原始 JSON 构造输入并归因。"""
     chain = collected.get("chain") or {}
     chain_flags = [c.get("status", "") for c in (chain.get("chain_status") or []) if c.get("status")]
@@ -452,4 +490,5 @@ def diagnose_from_collect(collected: dict, probes: list[dict], offline: bool = F
         catalog=catalog or {},
         timestamp=timestamp or {},
         revocation=revocation or {},
+        pe=pe or {},
     ))

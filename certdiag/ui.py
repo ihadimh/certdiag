@@ -421,8 +421,12 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    MAX_BODY = 8 * 1024 * 1024  # 8 MB：诊断请求本身很小，防止本机进程灌爆内存
+
     def _payload(self) -> dict:
         n = int(self.headers.get("Content-Length") or 0)
+        if n > self.MAX_BODY:
+            raise ValueError(f"请求体过大（{n} 字节，上限 {self.MAX_BODY}）")
         return json.loads(self.rfile.read(n) or b"{}")
 
     def _opts(self, p: dict) -> dict:

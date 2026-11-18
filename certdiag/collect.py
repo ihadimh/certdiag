@@ -181,7 +181,13 @@ def collect(path: str | os.PathLike, timeout: float = 60,
                     _worker = PowerShellWorker()
                 w = _worker
             _stats["worker_calls"] += 1
-            return w.collect(p, timeout=timeout, revoke=revoke, offline=offline)
+            res = w.collect(p, timeout=timeout, revoke=revoke, offline=offline)
+            if res.get("error") or not res.get("status"):
+                # worker 自己重试完仍失败时返回的是错误字典（不抛异常），
+                # 这里要真的回退到一次性 subprocess，而不是把错误当结果返回
+                _stats["worker_fallbacks"] += 1
+                return _collect_subprocess(p, int(timeout), revoke, offline)
+            return res
         except Exception:  # noqa: BLE001
             _stats["worker_fallbacks"] += 1
             _use_worker = False

@@ -24,8 +24,17 @@ class TestWinVerifyTrust(unittest.TestCase):
     def test_codes_table_covers_core_errors(self):
         from certdiag.winverify import CODES
 
-        for code in (0x800B0100, 0x800B0101, 0x800B0109, 0x800B010C, 0x800B010D):
+        # 断言名字，避免"数字在表里但含义错了"这种假通过
+        expected = {
+            0x800B0100: "TRUST_E_NOSIGNATURE",
+            0x800B0109: "CERT_E_UNTRUSTEDROOT",
+            0x800B010C: "CERT_E_REVOKED",
+            0x800B010D: "CERT_E_UNTRUSTEDTESTROOT",
+            0x80092013: "CRYPT_E_REVOCATION_OFFLINE",
+        }
+        for code, name in expected.items():
             self.assertIn(code, CODES)
+            self.assertEqual(CODES[code][0], name, f"0x{code:08X} 名字错误")
 
 
 @unittest.skipUnless(WINDOWS, "仅 Windows")

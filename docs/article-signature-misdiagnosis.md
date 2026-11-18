@@ -115,7 +115,7 @@ python -m certdiag "D:\release" --fail-on unknown     # 退出码 0/1/2
 Get-AuthenticodeSignature .\app.exe | Format-List Status, StatusMessage, SignerCertificate
 
 # 2. 精确错误码（只看嵌入式签名）
-#    0x800B0100=无签名  0x800B010D=吊销离线  0x80096010=哈希不符
+#    0x800B0100=无签名  0x80092013=吊销离线  0x80096010=哈希不符
 certutil -verify -urlfetch .\app.exe
 
 # 3. 是否有目录签名覆盖

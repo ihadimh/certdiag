@@ -98,6 +98,17 @@ def _tcp(host: str, port: int, timeout: float) -> tuple[str, str]:
 _opener_cache: list = []
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """不跟随 3xx。
+
+    我们只判断"这个地址能不能到达"，不需要跟随跳转；
+    跟随会让服务端用 302 把请求引到 http://127.0.0.1/，绕过前面的内网拦截。
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: D401
+        return None
+
+
 def _build_opener():
     """按系统代理设置构造 opener；只构造一次。"""
     if _opener_cache:
@@ -106,7 +117,7 @@ def _build_opener():
     info = detect()
     proxies = {"http": info.server, "https": info.server} if info.enabled else {}
     ctx = ssl.create_default_context()
-    handlers = [urllib.request.HTTPSHandler(context=ctx)]
+    handlers = [urllib.request.HTTPSHandler(context=ctx), _NoRedirect()]
     if proxies:
         handlers.append(urllib.request.ProxyHandler(proxies))
     _opener_cache.append(urllib.request.build_opener(*handlers))

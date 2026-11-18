@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 import sys
 from pathlib import Path
 
@@ -17,6 +18,7 @@ from .collect import close as close_worker, collect
 from .probe import probe_all
 from .report import build_report, dump_json, render_console, render_markdown
 from . import revoke as revoke_policy
+from .pe import inspect as pe_inspect, looks_like_pe_name
 from .timestamp import verify as timestamp_verify
 from .winverify import verify as wv_verify
 
@@ -62,6 +64,12 @@ def diagnose_one(path: Path, offline: bool, no_probe: bool, timeout: float,
                  revoke_mode: str = "off", allow_private: bool = False) -> dict:
     collected = collect(path, offline=offline)
 
+    # 结构探测：只在扩展名像程序时做，用来区分"文件损坏"和"类型不支持"
+    pe_info: dict = {}
+    if looks_like_pe_name(str(path)):
+        pe_info = pe_inspect(str(path))
+        collected["pe"] = pe_info
+
     # WinVerifyTrust 只看文件自身的嵌入式签名，能给出精确 HRESULT
     wv = wv_verify(str(path), offline=offline)
     collected["hresult"] = wv.get("hresult")
@@ -91,11 +99,22 @@ def diagnose_one(path: Path, offline: bool, no_probe: bool, timeout: float,
     effective, reason = revoke_policy.decide(revoke_mode, probes)
     if effective != "off" and collected.get("status"):
         dotnet_mode = revoke_policy.DOTNET_MODE[effective]
-        collected = collect(path, revoke=dotnet_mode, offline=offline)
-        collected["hresult"] = wv.get("hresult")
-        collected["hresult_name"] = wv.get("name")
-        collected["hresult_desc"] = wv.get("desc")
-        wv = wv_verify(str(path), offline=offline, revoke=effective)
+        checked_collected: dict = {}
+        try:
+            checked_collected = collect(path, revoke=dotnet_mode, offline=offline)
+        except Exception as e:  # noqa: BLE001
+            checked_collected = {"path": str(path), "error": f"吊销复查异常：{e}"}
+
+        if checked_collected.get("error") or not checked_collected.get("status"):
+            # 复查没拿到有效结果：不能沿用"已检查"的结论，退回未检查并写明原因
+            reason = str(checked_collected.get("error") or "吊销复查未返回有效状态")
+            effective = "off"
+        else:
+            collected = checked_collected
+            collected["hresult"] = wv.get("hresult")
+            collected["hresult_name"] = wv.get("name")
+            collected["hresult_desc"] = wv.get("desc")
+            wv = wv_verify(str(path), offline=offline, revoke=effective)
 
     chain_status = (collected.get("chain") or {}).get("chain_status") or []
     statuses = {(x.get("status") or "").lower() for x in chain_status}
@@ -106,7 +125,9 @@ def diagnose_one(path: Path, offline: bool, no_probe: bool, timeout: float,
     # 地址不可达）。那种情况必须算"没查成"，否则结论和末行会自相矛盾。
     rev_unknown_flags = {"offlinerevocation", "revocationstatusunknown", "revocationunknown"}
     rev_undetermined = bool(statuses & rev_unknown_flags)
-    checked = effective != "off" and not rev_undetermined
+    # 还需要"确实有链元素"：采集失败/空链时状态集为空，不能因此得出"检查过"
+    chain_elements = (collected.get("chain") or {}).get("elements") or []
+    checked = effective != "off" and not rev_undetermined and bool(chain_elements)
     if effective != "off" and rev_undetermined and not reason:
         reason = "系统链报告 OfflineRevocation"
 
@@ -117,7 +138,7 @@ def diagnose_one(path: Path, offline: bool, no_probe: bool, timeout: float,
 
     diag = diagnose_from_collect(collected, probes, offline=offline,
                                  catalog=catalog, timestamp=ts,
-                                 revocation=revocation)
+                                 revocation=revocation, pe=pe_info)
     return build_report(collected, probes, diag.to_dict(), offline,
                         catalog=catalog, timestamp=ts)
 
@@ -253,11 +274,17 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_ERROR
 
     reports = []
+    failed: list[str] = []
     try:
         for f in files:
-            rep = diagnose_one(f, args.offline, args.no_probe, args.timeout,
-                               args.catalog, args.timestamp, args.revoke,
-                               args.allow_private)
+            try:
+                rep = diagnose_one(f, args.offline, args.no_probe, args.timeout,
+                                   args.catalog, args.timestamp, args.revoke,
+                                   args.allow_private)
+            except Exception as e:  # noqa: BLE001
+                failed.append(str(f))
+                print(f"[!] 诊断失败：{f} — {e}", file=sys.stderr)
+                continue
             reports.append(rep)
             if not args.quiet:
                 print("-" * 70)
@@ -283,14 +310,27 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {mark} {rep['file']['path']}  [{rep['diagnosis']['category']}]")
 
     if args.json:
-        out = shown[0] if len(shown) == 1 else shown
-        dump_json(out, args.json)
+        # 结构固定成对象：单文件和多文件都返回 {"schema_version", "reports": [...]}。
+        # 以前"1 条输出对象、多条输出数组"，做 --only 过滤后类型会变，脚本会炸。
+        from . import __version__ as _ver
+        dump_json({
+            "schema_version": 1,
+            "tool": "certdiag",
+            "tool_version": _ver,
+            "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+            "count": len(shown),
+            "reports": shown,
+        }, args.json)
         print(f"\nJSON 报告已写入：{args.json}（{len(shown)} 条）")
     if args.md:
         text = "\n\n".join(render_markdown(r) for r in shown)
         Path(args.md).parent.mkdir(parents=True, exist_ok=True)
         Path(args.md).write_text(text, encoding="utf-8")
         print(f"Markdown 报告已写入：{args.md}（{len(shown)} 条）")
+
+    if failed:
+        print(f"\n {len(failed)} 个文件诊断失败（工具自身出错，不是文件的问题）", file=sys.stderr)
+        return EXIT_ERROR
 
     code = exit_code(reports, args.fail_on)
     if args.require_signature and without_signature(reports):

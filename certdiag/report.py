@@ -25,9 +25,13 @@ CATEGORY_LABEL = {
     "expired_with_broken_timestamp": "证书过期且时间戳无效",
     "no_signature": "无嵌入式签名",
     "catalog_signed": "由目录签名（catalog）覆盖",
+    "not_pe_file": "内容不是有效的 PE 文件",
+    "corrupt_pe": "PE 结构不完整（疑似截断）",
     "catalog_hash_mismatch": "目录签名自身无效（.cat 被改过）",
     "catalog_unverified": "由目录签名覆盖，但无法确认其有效性",
     "catalog_only_trust": "文件无嵌入签名，信任来自目录签名",
+    "not_pe_file": "内容不是有效的 PE 文件",
+    "corrupt_pe": "PE 结构不完整（疑似截断）",
     "catalog_hash_mismatch": "目录签名无效",
     "catalog_unverified": "目录签名无法验证",
     "hash_mismatch": "内容与签名不匹配",
@@ -90,6 +94,12 @@ def _fmt_size(n) -> str:
             return f"{n:.0f} {unit}" if unit == "B" else f"{n/1:.0f} {unit}"
         n /= 1024
     return f"{n} B"
+
+
+def _cell(value) -> str:
+    """表格单元格转义：竖线会截断 Markdown 表格，换行会破坏行结构。"""
+    s = "" if value is None else str(value)
+    return s.replace("|", "\\|").replace("\n", " ").replace("\r", " ")
 
 
 def render_markdown(report: dict) -> str:
@@ -155,7 +165,7 @@ def render_markdown(report: dict) -> str:
         for i, el in enumerate(chain["elements"], 1):
             flags = "、".join(s.get("status", "") for s in (el.get("status") or [])) or "正常"
             subject = (el.get("subject") or "")[:70]
-            lines.append(f"| {i} | {subject} | {(el.get('not_after') or '')[:10]} | {flags} |")
+            lines.append(f"| {i} | {_cell(subject)} | {(el.get('not_after') or '')[:10]} | {_cell(flags)} |")
         cs = chain.get("chain_status") or []
         if cs:
             lines.append("")
@@ -210,8 +220,8 @@ def render_markdown(report: dict) -> str:
         lines.append("|---|---|---|---|---|---|")
         for p in probes:
             lines.append(
-                f"| {p.get('url')} | {p.get('dns')} | {p.get('tcp')} | {p.get('http') or '-'} "
-                f"| {p.get('category')} | {(p.get('detail') or '')[:40]} |")
+                f"| {_cell(p.get('url'))} | {_cell(p.get('dns'))} | {_cell(p.get('tcp'))} | {_cell(p.get('http') or '-')} "
+                f"| {_cell(p.get('category'))} | {_cell((p.get('detail') or '')[:40])} |")
     lines.append("")
 
     if report.get("collect_error"):

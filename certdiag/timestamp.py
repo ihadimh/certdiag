@@ -22,6 +22,8 @@ import json
 import os
 import subprocess
 import tempfile
+
+MAX_PARSE_BYTES = 512 * 1024 * 1024  # 512 MB
 from pathlib import Path
 
 from .psworker import hidden_kwargs
@@ -151,6 +153,17 @@ def verify(path: str | os.PathLike, timeout: float = 30.0) -> TimestampResult:
         ps = _powershell()
     except RuntimeError as e:
         result["error"] = str(e)
+        return result
+
+    # 解析会把整个文件读进内存；对超大文件先设上限，避免扫描时被单个文件拖垮
+    try:
+        size = os.path.getsize(p)
+    except OSError as e:
+        result["error"] = f"无法读取文件大小：{e}"
+        return result
+    if size > MAX_PARSE_BYTES:
+        result["error"] = (f"文件过大（{size // 1024 // 1024} MB），"
+                           f"跳过时间戳解析（上限 {MAX_PARSE_BYTES // 1024 // 1024} MB）")
         return result
 
     fd, script = tempfile.mkstemp(prefix="certdiag_ts_", suffix=".ps1")

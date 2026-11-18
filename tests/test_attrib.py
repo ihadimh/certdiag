@@ -100,8 +100,20 @@ class TestAttribution(unittest.TestCase):
         self.assertIn("吊销", d.cause)
 
     def test_hresult_table_has_key_codes(self):
-        for code in (0x800B0100, 0x800B0101, 0x800B0109, 0x800B010C, 0x800B010D, 0x80096010):
+        # 不能只断言"这个数字在表里"——名字写错也要能测出来
+        expected = {
+            0x800B0100: "TRUST_E_NOSIGNATURE",
+            0x800B0101: "CERT_E_EXPIRED",
+            0x800B0109: "CERT_E_UNTRUSTEDROOT",
+            0x800B010C: "CERT_E_REVOKED",
+            0x800B010D: "CERT_E_UNTRUSTEDTESTROOT",
+            0x80092013: "CRYPT_E_REVOCATION_OFFLINE",
+            0x80096010: "TRUST_E_BAD_DIGEST",
+        }
+        for code, name in expected.items():
             self.assertIn(code, HRESULT_MAP)
+            self.assertEqual(HRESULT_MAP[code][0], name,
+                             f"0x{code:08X} 的名字写错了")
 
     def test_unmapped_status_falls_back(self):
         d = diagnose(DiagInput(status="SomeWeirdStatus"))
@@ -250,3 +262,41 @@ class TestRevoked(unittest.TestCase):
                         "state": "revoked", "reason": ""}))
         self.assertEqual(d.category, "revoked")
         self.assertEqual(d.verdict, "invalid")
+
+class TestEvidencePriority(unittest.TestCase):
+    """证据优先级：吊销是强否定，必须压过"过期但有时间戳"等正面推断。"""
+
+    def test_revoked_beats_expired_with_timestamp(self):
+        d = diagnose(DiagInput(
+            status="Valid", signer_expired=True,
+            timestamp={"has_token": True, "token_ok": True, "tsa_subject": "TSA"},
+            revocation={"mode": "online", "effective": "online", "checked": True,
+                        "state": "revoked", "reason": ""}))
+        self.assertEqual(d.category, "revoked")
+        self.assertEqual(d.verdict, "invalid")
+
+    def test_revoked_chain_flag_also_wins(self):
+        d = diagnose(DiagInput(status="Valid", chain_flags=["Revoked"],
+                               signer_expired=True))
+        self.assertEqual(d.category, "revoked")
+        self.assertEqual(d.verdict, "invalid")
+
+
+class TestRevocationEvidence(unittest.TestCase):
+    """checked 只能来自"真的拿到链元素且没有未知标志"。"""
+
+    def test_checked_ok_requires_chain_and_revocation(self):
+        d = diagnose(DiagInput(
+            status="Valid",
+            revocation={"mode": "auto", "effective": "online", "checked": True,
+                        "state": "checked_ok", "reason": ""}))
+        self.assertEqual(d.category, "valid_revocation_checked_ok")
+        self.assertEqual(d.confidence, "high")
+
+    def test_unchecked_reports_reason(self):
+        d = diagnose(DiagInput(
+            status="Valid",
+            revocation={"mode": "auto", "effective": "off", "checked": False,
+                        "state": "unchecked", "reason": "吊销复查采集失败：worker 无响应"}))
+        self.assertEqual(d.category, "valid_revocation_unchecked")
+        self.assertIn("吊销复查采集失败", d.cause)
