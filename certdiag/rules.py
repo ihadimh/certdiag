@@ -1,0 +1,114 @@
+"""rules.py — 归因规则的机器可读版本
+
+为什么单独抽出来：
+    `attrib.py` 里的判断是代码，人和 agent 都读不了"有哪些结论、各自意味着什么"。
+    把规则整理成结构化数据后：
+      - 可以导出 rules.json 给文档/工具/agent 消费
+      - 配套测试保证「代码里出现的分类」都在这张表里，防止两处漂移
+
+注意：这里**不重复实现判断逻辑**（那会和 attrib 打架），只描述每个结论的含义。
+"""
+from __future__ import annotations
+
+import json
+
+# 每条规则：id / verdict / title / when / action
+RULES: list[dict] = [
+    {"id": "valid", "verdict": "valid", "title": "签名与证书链均正常",
+     "when": "签名有效、链完整、吊销检查通过",
+     "action": "无需处理"},
+    {"id": "valid_revocation_checked_ok", "verdict": "valid", "title": "签名、链与吊销均已检查通过",
+     "when": "--revoke 为 cache/auto/online 且吊销检查成功",
+     "action": "无需处理"},
+    {"id": "valid_revocation_unchecked", "verdict": "valid", "title": "签名有效，但未检查吊销",
+     "when": "--revoke=off（默认），或 auto 档因地址不可达而放弃",
+     "action": "需要吊销结论时加 --revoke=cache 或 --revoke=auto；未检查不等于通过"},
+    {"id": "revoked", "verdict": "invalid", "title": "证书已被吊销",
+     "when": "吊销检查成功且链上有证书出现在 CRL/OCSP 中",
+     "action": "不要运行；从官方渠道重新获取，或联系签发机构核实"},
+    {"id": "valid_offline", "verdict": "valid", "title": "签名有效（离线，未查吊销）",
+     "when": "离线模式：签名与链有效，但没有做吊销检查",
+     "action": "需要完整结论时联网重跑；离线结论不能证明「未被吊销」"},
+    {"id": "catalog_only_trust", "verdict": "valid", "title": "信任来自目录签名",
+     "when": "文件自身没有嵌入式签名，但被有效的 .cat 覆盖",
+     "action": "系统组件的正常形态，无需处理"},
+    {"id": "catalog_signed", "verdict": "valid", "title": "由目录签名覆盖",
+     "when": "无嵌入式签名，但找到覆盖它的有效目录文件",
+     "action": "无需处理；可查看 .cat 路径核对"},
+    {"id": "catalog_unverified", "verdict": "unknown", "title": "目录签名无法验证",
+     "when": "找到 .cat 但它的签名状态无法确认",
+     "action": "用 signtool verify /pa <cat> 复核，检查根证书"},
+    {"id": "catalog_hash_mismatch", "verdict": "invalid", "title": "目录签名无效",
+     "when": "目录文件本身签名不匹配（可能被改过或损坏）",
+     "action": "用 sfc /scannow 修复系统文件；确认 .cat 来源"},
+    {"id": "no_signature", "verdict": "unknown", "title": "无嵌入式签名且无目录签名",
+     "when": "两种签名形态都不存在",
+     "action": "不等于被篡改；确认是否为自编译/内部程序"},
+    {"id": "not_applicable", "verdict": "unknown", "title": "该文件类型没有签名概念",
+     "when": "文本/图片/压缩包等非 PE 文件",
+     "action": "只对 PE、脚本、安装包做签名检查"},
+    {"id": "hash_mismatch", "verdict": "invalid", "title": "内容与签名不匹配",
+     "when": "文件哈希与签名中记录的不一致",
+     "action": "高度可疑：重新获取文件，不要运行"},
+    {"id": "expired", "verdict": "invalid", "title": "证书已过期且无时间戳",
+     "when": "签名者证书不在有效期内，且没有时间戳",
+     "action": "先核对系统时间；确实过期需重新签名"},
+    {"id": "expired_with_timestamp", "verdict": "valid", "title": "证书过期但带时间戳（未校验）",
+     "when": "签名者证书过期，存在时间戳但未验证令牌",
+     "action": "用 --timestamp 或 signtool verify /pa /t 核实"},
+    {"id": "expired_with_timestamp_signature_ok", "verdict": "valid", "title": "证书过期，时间戳令牌签名有效",
+     "when": "签名者证书过期，时间戳令牌自身的签名校验通过（未校验 TSA 信任链与用途）",
+     "action": "再跑 signtool verify /pa /t 才能确认时间戳可信"},
+    {"id": "expired_with_broken_timestamp", "verdict": "unknown", "title": "证书过期且时间戳无效",
+     "when": "有时间戳令牌，但令牌本身签名校验失败",
+     "action": "时间戳可能被篡改，从官方渠道重新获取文件"},
+    {"id": "revocation_unreachable", "verdict": "unknown", "title": "吊销查询地址不可达",
+     "when": "系统报 OfflineRevocation 且 CRL/OCSP 访问失败",
+     "action": "网络问题：换网络/配代理；不要删除证书"},
+    {"id": "revocation_unknown", "verdict": "unknown", "title": "吊销状态未知",
+     "when": "吊销查询没有返回有效结果",
+     "action": "换环境重试；查不到 ≠ 证书无效"},
+    {"id": "revocation_unverified", "verdict": "unknown", "title": "吊销状态未能验证（探测受限）",
+     "when": "CRL 可达但 OCSP 端点无法用 GET 判定（正常现象）",
+     "action": "以系统实际验证结果为准，不要据此判无效"},
+    {"id": "revocation_not_checked", "verdict": "unknown", "title": "离线模式，未查吊销",
+     "when": "显式使用 --offline",
+     "action": "需要吊销结论时联网重跑"},
+    {"id": "untrusted_root", "verdict": "invalid", "title": "根证书不受信任",
+     "when": "证书链的根不在本机受信根列表里",
+     "action": "企业环境部署根证书；个人用户确认来源"},
+    {"id": "partial_chain", "verdict": "invalid", "title": "证书链不完整",
+     "when": "缺少中间证书，无法构建完整链",
+     "action": "安装对应中间证书（通常随软件提供）"},
+    {"id": "key_usage", "verdict": "invalid", "title": "证书用途不匹配",
+     "when": "证书的 EKU 不含代码签名",
+     "action": "确认签名使用的是代码签名证书"},
+    {"id": "unknown", "verdict": "unknown", "title": "无法归因",
+     "when": "现有信息不足以判断",
+     "action": "带 --json 报告和 verify.py --report 提 issue"},
+]
+
+# 动态分类：hresult:NAME（由 WinVerifyTrust 错误码直接定性）
+DYNAMIC_PREFIXES = ("hresult:",)
+
+RED_LINES = [
+    "不建议关闭签名校验 / 关闭杀软 / 加入白名单",
+    "不建议删除或替换系统根证书",
+    "不建议使用破解、去校验一类工具",
+    "不把「查不到吊销状态」说成「证书无效」",
+]
+
+
+def as_json() -> str:
+    return json.dumps({
+        "tool": "certdiag",
+        "version": 1,
+        "verdicts": ["valid", "invalid", "unknown"],
+        "rules": RULES,
+        "dynamic_prefixes": list(DYNAMIC_PREFIXES),
+        "red_lines": RED_LINES,
+    }, ensure_ascii=False, indent=2)
+
+
+def ids() -> set[str]:
+    return {r["id"] for r in RULES}

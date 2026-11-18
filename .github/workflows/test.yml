@@ -1,0 +1,58 @@
+name: tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ '3.10', '3.12' ]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 设置 Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: 编译检查
+        run: python -m compileall -q certdiag tools verify.py
+
+      - name: 单元测试
+        run: python -m unittest discover -s tests -v
+
+      - name: 自检（真实场景）
+        run: python verify.py
+      - name: 退出码语义
+        shell: pwsh
+        run: |
+          python -m certdiag samples/signed_ok.exe --no-probe -q
+          if ($LASTEXITCODE -ne 0) { throw "有效文件应返回 0，实际 $LASTEXITCODE" }
+
+          python -m certdiag samples/tampered.exe --no-probe -q
+          if ($LASTEXITCODE -ne 1) { throw "篡改文件应返回 1，实际 $LASTEXITCODE" }
+
+          python -m certdiag samples/tampered.exe --no-probe -q --fail-on none
+          if ($LASTEXITCODE -ne 0) { throw "--fail-on none 应返回 0，实际 $LASTEXITCODE" }
+
+          python -m certdiag "C:\definitely-not-here.exe" -q
+          if ($LASTEXITCODE -ne 3) { throw "不存在的路径应返回 3，实际 $LASTEXITCODE" }
+          echo "退出码语义正确"
+          # 关键：GitHub 的 pwsh 包装器会用 $LASTEXITCODE 作为步骤退出码，
+          # 上一条 python 返回 3，不显式 exit 0 会让整个步骤失败
+          exit 0
+
+      - name: 环境报告
+        run: python verify.py --report env-report.md
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: env-report-py${{ matrix.python-version }}
+          path: env-report.md

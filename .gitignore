@@ -1,0 +1,30 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 运行产物
+out/
+*.log
+
+# 生成的测试样本（用 samples/make_samples.py 重新生成）
+samples/*.exe
+samples/*.dll
+samples/*.cat
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+
+
+# 打包产物
+dist/
+
+
+# 发布脚手架，不属于工具本身（会读 token 上传文件，容易被误解）
+tools/push_repo.py
+tools/.push_repo.local.py
+

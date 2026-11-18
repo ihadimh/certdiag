@@ -1,0 +1,12 @@
+# 批处理必须是 CRLF，否则 cmd 解析会出错
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 脚本与文档统一 LF
+*.py  text eol=lf
+*.md  text eol=lf
+*.ps1 text eol=crlf
+
+# 图片按二进制处理
+*.png binary
+*.ico binary
