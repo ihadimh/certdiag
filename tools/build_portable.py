@@ -109,10 +109,15 @@ exit /b
 
 :missing
 echo.
-echo   [错误] 找不到 runtime\pythonw.exe
+echo   [错误] 找不到运行时：
+echo   %~dp0runtime\pythonw.exe
 echo.
-echo   请先把压缩包【完整解压】到一个文件夹，再双击里面的本文件。
-echo   直接在压缩包预览窗口里双击时，找不到同目录的 runtime。
+echo   当前目录：%CD%
+echo.
+echo   如果上面路径里带着 .zip\ 或 Temp\ 字样，说明你是在
+echo   压缩包预览窗口里直接双击的，那个目录里当然没有 runtime。
+echo.
+echo   正确做法：右键压缩包 -> 全部解压缩，再进文件夹双击。
 echo.
 pause
 exit /b 1
@@ -141,12 +146,71 @@ exit /b 0
 
 :missing
 echo.
-echo   [错误] 找不到 runtime\python.exe
+echo   [错误] 找不到运行时：
+echo   %~dp0runtime\python.exe
 echo.
 echo   请先把压缩包【完整解压】到一个文件夹，再运行本文件。
 echo.
 pause
 exit /b 1
+"""
+
+
+USAGE_TXT = r"""certdiag 1.5.0 便携版 · 使用说明
+==================================================
+
+一、怎么启动（必须先解压）
+  1. 右键压缩包 → 全部解压缩（不要在压缩包预览窗口里直接双击里面的文件）
+  2. 打开解压出的文件夹 certdiag-portable-1.5.0
+  3. 双击「双击启动」→ 浏览器会打开 http://127.0.0.1:8765
+  4. 把 exe / dll 拖进窗口，或点「选择文件」
+
+二、命令行用法
+  方法 A：把文件或文件夹直接拖到「命令行诊断」图标上
+  方法 B：在本文件夹里打开 PowerShell / CMD，运行：
+
+      .\runtime\python.exe -m certdiag "C:\路径\程序.exe"
+      .\runtime\python.exe -m certdiag "C:\路径\文件夹" --fail-on invalid
+      .\runtime\python.exe -m certdiag "C:\路径\程序.exe" --revoke=auto
+
+三、常用参数
+  --revoke=off|cache|auto|online  吊销检查档位。默认 off，报告会明确写「未检查」
+  --offline                       完全离线：不探测、不联网查吊销、不下载中间证书
+  --no-probe                      只关闭网络探测
+  --require-signature             把「无签名 / 无法验证」也判为失败（签名门禁用）
+  --allow-private                 允许探测内网地址（默认禁止，防止证书里的地址引导内网访问）
+  --json                          输出 JSON
+  --ui --port 8765                启动图形界面并指定端口
+
+四、退出码
+  0 = 全部有效
+  1 = 存在确定无效
+  2 = 存在无法判定（网络/吊销查不到）
+  3 = 运行出错（参数错误、文件不存在等）
+
+五、自检（怀疑环境有问题时跑这个）
+  .\runtime\python.exe verify.py
+  .\runtime\python.exe -m unittest discover -s tests
+
+六、常见问题
+  Q: 双击提示「找不到运行时」
+  A: 你是在压缩包预览里双击的，那个临时目录里没有 runtime。
+     先完整解压，再进文件夹运行。
+
+  Q: 双击「双击启动」没反应，浏览器也没开
+  A: 可能已经有一个实例在跑了（8765 端口被占）。先直接访问
+     http://127.0.0.1:8765 看看；要重启就先关掉旧的 pythonw 进程。
+
+  Q: 结论写「未检查（--revoke=off）」
+  A: 这是默认行为，不是错误。要看吊销状态就加 --revoke=auto。
+
+  Q: 界面里没有吊销选项
+  A: 命令行才有 --revoke，界面固定用默认 off。
+
+七、安全说明
+  只读诊断：不安装证书、不改注册表、不绕过签名校验、不上传任何文件。
+  证书里的 CRL/OCSP 地址属于不可信输入，指向内网时默认不探测。
+  详见同目录 SECURITY.md。
 """
 
 
@@ -202,6 +266,8 @@ def main() -> int:
 
     write_cmd(out / "双击启动.cmd", LAUNCH_UI)
     write_cmd(out / "命令行诊断.cmd", LAUNCH_CLI)
+    (out / "使用说明.txt").write_text(USAGE_TXT, encoding="utf-8-sig")
+    print("[+] 使用说明.txt")
 
     zpkg = DIST / f"{name}.zip"
     if zpkg.exists():
