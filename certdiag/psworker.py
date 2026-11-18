@@ -57,7 +57,7 @@ function Get-Sha256Safe {
 }
 
 function Get-SigRecord {
-  param([string]$Path, [string]$Revoke = 'NoCheck')
+  param([string]$Path, [string]$Revoke = 'NoCheck', [bool]$Offline = $false)
 
   $rec = [ordered]@{
     path = $null; exists = $false; size = 0; sha256 = $null
@@ -99,6 +99,8 @@ function Get-SigRecord {
 
       $chain = New-Object System.Security.Cryptography.X509Certificates.X509Chain
       $chain.ChainPolicy.RevocationMode = [System.Security.Cryptography.X509Certificates.X509RevocationMode]::$Revoke
+    # 离线模式：连中间证书（AIA）都不许下载，否则离线就是假的
+    if ($Offline) { $chain.ChainPolicy.DisableCertificateDownloads = $true }
       $chain.ChainPolicy.RevocationFlag = [System.Security.Cryptography.X509Certificates.X509RevocationFlag]::ExcludeRoot
       $built = $chain.Build($cert)
 
@@ -148,7 +150,8 @@ while ($true) {
   try {
     $job = $line | ConvertFrom-Json
     $rev = if ($job.revoke) { $job.revoke } else { 'NoCheck' }
-    $out = Get-SigRecord -Path $job.path -Revoke $rev
+    $off = if ($job.offline) { $true } else { $false }
+    $out = Get-SigRecord -Path $job.path -Revoke $rev -Offline $off
   }
   catch {
     $out = [ordered]@{ path = $null; error = $_.Exception.Message }
@@ -221,12 +224,12 @@ class PowerShellWorker:
 
     # ---------- 采集 ----------
     def collect(self, path: str | Path, timeout: float = 30.0,
-                revoke: str = "NoCheck") -> dict:
+                revoke: str = "NoCheck", offline: bool = False) -> dict:
         path = str(Path(path))
         with self._lock:
             for attempt in (1, 2):
                 try:
-                    return self._request(path, timeout, revoke)
+                    return self._request(path, timeout, revoke, offline)
                 except Exception:  # noqa: BLE001
                     if attempt == 2:
                         return {"path": path, "error": "PowerShell 工作进程无响应"}
@@ -237,9 +240,11 @@ class PowerShellWorker:
                     self._start()
         return {"path": path, "error": "采集失败"}
 
-    def _request(self, path: str, timeout: float, revoke: str = "NoCheck") -> dict:
+    def _request(self, path: str, timeout: float, revoke: str = "NoCheck",
+                 offline: bool = False) -> dict:
         assert self._proc and self._proc.stdin and self._proc.stdout
-        payload = json.dumps({"path": path, "revoke": revoke}, ensure_ascii=False)
+        payload = json.dumps({"path": path, "revoke": revoke, "offline": offline},
+                                ensure_ascii=False)
         self._proc.stdin.write(payload + "\n")
         self._proc.stdin.flush()
 

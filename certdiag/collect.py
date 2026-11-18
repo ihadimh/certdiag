@@ -21,7 +21,7 @@ from pathlib import Path
 from .psworker import PowerShellWorker, hidden_kwargs
 
 PS_SCRIPT = r"""
-param([string]$Path, [string]$Out, [string]$Revoke = 'NoCheck')
+param([string]$Path, [string]$Out, [string]$Revoke = 'NoCheck', [bool]$Offline = $false)
 
 $ErrorActionPreference = 'Stop'
 $result = [ordered]@{
@@ -76,6 +76,7 @@ try {
 
     $chain = New-Object System.Security.Cryptography.X509Certificates.X509Chain
     $chain.ChainPolicy.RevocationMode = [System.Security.Cryptography.X509Certificates.X509RevocationMode]::$Revoke
+  if ($Offline) { $chain.ChainPolicy.DisableCertificateDownloads = $true }
     $chain.ChainPolicy.RevocationFlag = [System.Security.Cryptography.X509Certificates.X509RevocationFlag]::ExcludeRoot
     $built = $chain.Build($cert)
 
@@ -145,7 +146,8 @@ def _find_powershell() -> str:
     raise RuntimeError("未找到 PowerShell，无法采集签名信息")
 
 
-def _collect_subprocess(path: str, timeout: int = 60, revoke: str = "NoCheck") -> dict:
+def _collect_subprocess(path: str, timeout: int = 60, revoke: str = "NoCheck",
+                        offline: bool = False) -> dict:
     _stats["subprocess_calls"] += 1
     ps = _find_powershell()
     with tempfile.TemporaryDirectory(prefix="certdiag_") as td:
@@ -153,7 +155,8 @@ def _collect_subprocess(path: str, timeout: int = 60, revoke: str = "NoCheck") -
         out = Path(td) / "out.json"
         script.write_text(PS_SCRIPT, encoding="utf-8-sig")
         cmd = [ps, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-               "-File", str(script), "-Path", path, "-Out", str(out), "-Revoke", revoke]
+               "-File", str(script), "-Path", path, "-Out", str(out), "-Revoke", revoke,
+               "-Offline", ("true" if offline else "false")]
         try:
             proc = subprocess.run(cmd, capture_output=True, text=True,
                                   encoding="utf-8", errors="replace", timeout=timeout,
@@ -167,7 +170,7 @@ def _collect_subprocess(path: str, timeout: int = 60, revoke: str = "NoCheck") -
 
 
 def collect(path: str | os.PathLike, timeout: float = 60,
-            revoke: str = "NoCheck") -> dict:
+            revoke: str = "NoCheck", offline: bool = False) -> dict:
     """采集单个文件；自动选择常驻 worker 或一次性 subprocess。"""
     global _worker, _use_worker
     p = str(Path(path))
@@ -178,11 +181,11 @@ def collect(path: str | os.PathLike, timeout: float = 60,
                     _worker = PowerShellWorker()
                 w = _worker
             _stats["worker_calls"] += 1
-            return w.collect(p, timeout=timeout, revoke=revoke)
+            return w.collect(p, timeout=timeout, revoke=revoke, offline=offline)
         except Exception:  # noqa: BLE001
             _stats["worker_fallbacks"] += 1
             _use_worker = False
-    return _collect_subprocess(p, int(timeout), revoke)
+    return _collect_subprocess(p, int(timeout), revoke, offline)
 
 
 def stats() -> dict:

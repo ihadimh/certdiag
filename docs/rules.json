@@ -60,14 +60,14 @@
       "id": "catalog_unverified",
       "verdict": "unknown",
       "title": "目录签名无法验证",
-      "when": "找到 .cat 但它的签名状态无法确认",
+      "when": "找到 .cat，但该 .cat 自身的签名状态不是 Valid（可能是 NotTrusted / UnknownError）",
       "action": "用 signtool verify /pa <cat> 复核，检查根证书"
     },
     {
       "id": "catalog_hash_mismatch",
       "verdict": "invalid",
       "title": "目录签名无效",
-      "when": "目录文件本身签名不匹配（可能被改过或损坏）",
+      "when": "找到 .cat，但它自身的签名校验失败（HashMismatch，可能被改过或损坏）",
       "action": "用 sfc /scannow 修复系统文件；确认 .cat 来源"
     },
     {

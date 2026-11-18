@@ -18,7 +18,8 @@
 - ❌ **不写注册表**，不修改系统设置
 - ❌ **不绕过签名校验**，不做 patch、破解、去校验
 - ❌ **不上传任何文件或哈希**到任何服务器
-- ❌ 不下载可执行文件（便携包构建脚本会从 python.org 下载官方 Python 运行时，仅此一项）
+- ❌ 不下载可执行文件（便携包构建脚本会从 python.org 下载官方 Python 运行时，仅此一项；
+   解压后会**用本项目自己的 winverify 校验 `python.exe` 的 Authenticode 签名**，不通过则中止构建）
 
 ## 关于 `samples/make_test_samples.py`
 
@@ -29,11 +30,20 @@
 - 产物 `signed_ok.exe` / `tampered.exe` 已被 `.gitignore` 排除，**不会进仓库**
 - `tampered.exe` 是损坏文件，仅用于测试，不应运行
 
+## 关于证书里的网络地址
+
+CRL/OCSP 地址取自文件的证书，属于**不可信输入**。默认策略：
+
+- 只探测 CRL（`2.5.29.31`）与 OCSP（`1.3.6.1.5.5.7.48.1`）扩展里的地址
+- 解析后若是内网 / 回环 / 链路本地 / 保留地址，**直接跳过**（`skipped_private`）
+- 需要探测内网 PKI 时，必须显式加 `--allow-private`
+
 ## 关于网络
 
 诊断需要判断"吊销状态能不能查到"，所以会访问证书里记录的 CRL/OCSP 地址（通常是 `crl*.digicert.com`、`www.microsoft.com/pkiops/...` 这类）。
 
-如果不想产生任何网络请求：`--offline` 或 `--no-probe`。
+如果不想产生任何网络请求：`--offline`（同时关闭探测、吊销联网检查与证书链的 AIA 下载），
+或 `--no-probe --revoke=off`（只关闭主动探测）。
 
 ## 报告问题
 

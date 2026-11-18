@@ -65,10 +65,10 @@ Windows 上签名校验失败时，系统给的往往是一句没用的话：
 
 ## 免安装便携版（推荐给不想装 Python 的人）
 
-**[⬇ 下载 certdiag-portable-1.4.0.zip](https://github.com/ihadimh/certdiag/releases/download/v1.4.0/certdiag-portable-1.4.0.zip)**（约 11 MB，解压后**双击即用**，自带 Python 运行时）
+**[⬇ 下载 certdiag-portable-1.5.0.zip](https://github.com/ihadimh/certdiag/releases/download/v1.5.0/certdiag-portable-1.5.0.zip)**（约 11 MB，解压后**双击即用**，自带 Python 运行时）
 
 ```
-certdiag-portable-1.4.0/
+certdiag-portable-1.5.0/
 ├── 双击启动.cmd      ← 打开图形界面（无黑框）
 ├── 命令行诊断.cmd    ← 把文件拖到它上面，直接出结论
 ├── runtime/          ← 自带 Python 3.12（embeddable）
@@ -122,8 +122,8 @@ python -m certdiag --ui
 ```
 文件：C:\Program Files\Cisco Packet Tracer 9.0.1\bin\PacketTracer.exe
 状态：Valid（Signature verified.）
-结论：✅ 有效 — 签名有效，证书链完整且可信，吊销检查通过
-分类：valid  置信度：high
+结论：✅ 有效 — 签名、证书链与吊销状态均已检查通过
+分类：valid_revocation_checked_ok  置信度：high
 ```
 
 Markdown 报告包含：结论、签名信息（含 WinVerifyTrust 的精确 HRESULT）、证书链逐跳表格、目录签名、每个吊销地址的 DNS/TCP/HTTP 探测结果。
@@ -320,6 +320,9 @@ Windows 的代码签名只覆盖特定类型，不是所有文件都能查：
 
 检测结果会写进报告（`proxy` 字段），界面上也会显示"使用系统代理 / 直连"。
 
+> 支持范围说明：目前只处理**显式 HTTP/HTTPS 代理**（环境变量或 Windows Internet Settings 里的
+> ProxyServer）。`ProxyOverride` 绕过列表、PAC 脚本求值、SOCKS 代理都不完整支持。
+
 探测有两条路径：
 
 1. **直连**：DNS → TCP → TLS → HTTP
@@ -444,6 +447,9 @@ python -m certdiag app.exe --revoke=auto    # 推荐：先探路再决定要不�
 
 `--offline` 与 `--revoke=auto|online` 互斥，会直接报错退出（退出码 3）。
 
+离线模式除了不跑探测，还会给证书链设置 `DisableCertificateDownloads = $true`——
+否则链构建仍可能通过 AIA 去下载中间证书，"离线"就名不副实。
+
 对应三种结论：
 
 | 情况 | 分类 | 置信度 |
@@ -451,6 +457,21 @@ python -m certdiag app.exe --revoke=auto    # 推荐：先探路再决定要不�
 | 查了、通过 | `valid_revocation_checked_ok` | high |
 | 没查（off，或 auto 退化） | `valid_revocation_unchecked` | medium |
 | 查了、被吊销 | `revoked` | invalid |
+
+## 安全边界：证书里的地址不可信
+
+证书扩展里的 CRL/OCSP 地址**不是可信输入**。恶意文件可以把自己的证书写成
+`http://10.0.0.1/` 或 `http://127.0.0.1:8765/`，工具若照单探测，就等于替它扫内网。
+
+因此默认行为是：
+
+- 解析出目标 IP 后判断，落在**内网 / 回环 / 链路本地 / 保留 / 组播**段的一律不探测
+- 该地址记为 `skipped_private`，并在报告里写明原因
+- 确有内网 PKI 需要探测时，加 `--allow-private` 显式放开
+
+另外，`--require-signature` 用于门禁场景：把「无签名 / 无法验证签名 / 目录签名无法确认」
+也算作失败（退出码 1）。默认的 `--fail-on invalid` 不会因为"没签名"而失败——这是两个不同的用途，
+别混用。
 
 ## 退出码与流水线集成
 

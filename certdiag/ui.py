@@ -455,10 +455,12 @@ class _Handler(BaseHTTPRequestHandler):
         host = (self.headers.get("Host") or "").split(":")[0].strip().lower()
         if host not in ("127.0.0.1", "localhost", "[::1]"):
             return False
-        origin = (self.headers.get("Origin") or "").strip().lower()
-        if origin and not origin.startswith(("http://127.0.0.1", "http://localhost",
-                                             "http://[::1]")):
-            return False
+        origin = (self.headers.get("Origin") or "").strip()
+        if origin:
+            # 不能用 startswith 比较：http://localhost.attacker.example 也以
+            # http://localhost 开头。解析后逐项比对 scheme/hostname/port。
+            if not origin_allowed(origin, self.server.server_address[1]):
+                return False
         return True
 
     def do_POST(self):
@@ -595,6 +597,24 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
+
+
+def origin_allowed(origin: str, port: int) -> bool:
+    """Origin 是否为本机同端口页面。
+
+    不能用 startswith：http://localhost.attacker.example 也以 http://localhost 开头。
+    """
+    if not origin:
+        return True
+    try:
+        u = urlsplit(origin)
+    except ValueError:
+        return False
+    if u.scheme != "http":
+        return False
+    if (u.hostname or "").lower() not in ("127.0.0.1", "localhost", "::1"):
+        return False
+    return u.port in (None, port)
 
 
 class _Server(ThreadingHTTPServer):

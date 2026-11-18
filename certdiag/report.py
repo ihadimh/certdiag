@@ -25,6 +25,8 @@ CATEGORY_LABEL = {
     "expired_with_broken_timestamp": "证书过期且时间戳无效",
     "no_signature": "无嵌入式签名",
     "catalog_signed": "由目录签名（catalog）覆盖",
+    "catalog_hash_mismatch": "目录签名自身无效（.cat 被改过）",
+    "catalog_unverified": "由目录签名覆盖，但无法确认其有效性",
     "catalog_only_trust": "文件无嵌入签名，信任来自目录签名",
     "catalog_hash_mismatch": "目录签名无效",
     "catalog_unverified": "目录签名无法验证",

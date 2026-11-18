@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import ipaddress
 import socket
 import threading
 import ssl
@@ -37,6 +38,20 @@ class ProbeResult:
 
     def to_dict(self) -> dict:
         return asdict(self)
+
+
+def is_private_ip(ip: str) -> bool:
+    """内网 / 回环 / 链路本地 / 保留地址。
+
+    证书里的 URL 是**不可信输入**：恶意文件的证书可以写 http://10.0.0.1/，
+    然后我们去探测就等于帮它扫内网。默认拒绝，需要时用 --allow-private 放开。
+    """
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return True  # 解析不出来的按危险处理
+    return (addr.is_private or addr.is_loopback or addr.is_link_local
+            or addr.is_reserved or addr.is_multicast or addr.is_unspecified)
 
 
 def _resolve(host: str, timeout: float) -> tuple[str, list[str], str]:
@@ -170,7 +185,8 @@ def _http_via_proxy(url: str, timeout: float, r: "ProbeResult") -> bool:
         return False
 
 
-def probe_url(url: str, timeout: float = 5.0) -> ProbeResult:
+def probe_url(url: str, timeout: float = 5.0,
+              allow_private: bool = False) -> ProbeResult:
     t0 = time.time()
     r = ProbeResult(url=url)
     r.kind = guess_kind(url)
@@ -193,6 +209,13 @@ def probe_url(url: str, timeout: float = 5.0) -> ProbeResult:
             r.elapsed_ms = int((time.time() - t0) * 1000)
             return r
         r.category, r.detail = "dns_fail", dns_detail
+        r.elapsed_ms = int((time.time() - t0) * 1000)
+        return r
+
+    if not allow_private and any(is_private_ip(ip) for ip in r.ips):
+        r.category = "skipped_private"
+        r.detail = ("目标解析到内网/回环地址，默认不探测（证书里的地址不可信）；"
+                    "确需探测请加 --allow-private")
         r.elapsed_ms = int((time.time() - t0) * 1000)
         return r
 
@@ -224,9 +247,10 @@ def probe_url(url: str, timeout: float = 5.0) -> ProbeResult:
     return r
 
 
-def probe_all(urls: Iterable[str], timeout: float = 5.0, workers: int = 8) -> list[ProbeResult]:
+def probe_all(urls: Iterable[str], timeout: float = 5.0, workers: int = 8,
+              allow_private: bool = False) -> list[ProbeResult]:
     urls = [u for u in dict.fromkeys(urls) if u]
     if not urls:
         return []
     with ThreadPoolExecutor(max_workers=min(workers, len(urls))) as pool:
-        return list(pool.map(lambda u: probe_url(u, timeout), urls))
+        return list(pool.map(lambda u: probe_url(u, timeout, allow_private), urls))

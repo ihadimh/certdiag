@@ -142,14 +142,34 @@ def diagnose(inp: DiagInput) -> Diagnosis:
     # 0.5) 系统判定有效，但文件自身无嵌入式签名 → 信任来自目录签名
     if st == "Valid" and inp.hresult == 0x800B0100 and (inp.catalog or {}).get("found"):
         cat = inp.catalog
+        status = cat.get("signature_status")
+        cat_ev = evidence + [f"目录签名状态：{status}",
+                             f"目录文件：{cat.get('path')}"]
+        # 关键：found 只说明"目录库里有条哈希对上了"，不代表这条 .cat 的签名可信。
+        # 必须看 .cat 自身的签名状态，否则等于把"找到"当成"可信"。
+        if status == "Valid":
+            return Diagnosis(
+                category="catalog_only_trust", verdict=VERDICT_VALID,
+                cause="文件自身没有嵌入式签名，由有效的目录签名（catalog）覆盖",
+                confidence="high",
+                advice=["这是系统组件的常见形态，不需要处理",
+                        "如需核对，可查看报告中的目录签名路径"],
+                evidence=cat_ev)
+        if status in ("HashMismatch",):
+            return Diagnosis(
+                category="catalog_hash_mismatch", verdict=VERDICT_INVALID,
+                cause="目录文件的签名无效（.cat 内容与签名不符）",
+                confidence="medium",
+                advice=["目录可能被篡改或损坏，先跑 sfc /scannow",
+                        "确认该 .cat 的来源"],
+                evidence=cat_ev)
         return Diagnosis(
-            category="catalog_only_trust", verdict=VERDICT_VALID,
-            cause="文件自身没有嵌入式签名，有效性来自目录签名（catalog）",
-            confidence="high",
-            advice=["这是系统组件的常见形态，不需要处理",
-                    "如需核对，可查看报告中的目录签名路径"],
-            evidence=evidence + [f"目录签名状态：{cat.get('signature_status')}",
-                                 f"目录文件：{cat.get('path')}"])
+            category="catalog_unverified", verdict=VERDICT_UNKNOWN,
+            cause=f"文件由目录签名覆盖，但目录签名状态为「{status or '未知'}」，无法确认有效性",
+            confidence="medium",
+            advice=["用 signtool verify /pa <目录文件> 复核",
+                    "检查对应根证书是否在信任库中"],
+            evidence=cat_ev)
 
     # 1) 没有嵌入式签名 —— 先查是否由目录签名覆盖
     if st in ("NotSigned", "NotSupportedFileFormat"):

@@ -55,6 +55,35 @@ def fetch_runtime(cache: Path) -> Path:
     return cache
 
 
+def verify_runtime(runtime: Path) -> None:
+    """校验解压出来的 python.exe 有没有有效的 Authenticode 签名。
+
+    构建输入也要验：官方 zip 是 http 下载还是被中间人换过，只看域名判断不了。
+    用本项目自己的 winverify 去问系统，失败就让构建停下来。
+    """
+    import sys
+
+    sys.path.insert(0, str(ROOT))
+    try:
+        from certdiag.winverify import verify
+    except Exception as e:  # noqa: BLE001
+        print(f"[!] 跳过签名校验（模块不可用：{e}）")
+        return
+
+    exe = runtime / "python.exe"
+    if not exe.exists():
+        raise SystemExit("[x] runtime/python.exe 不存在，构建中止")
+
+    r = verify(str(exe))
+    if r.ok:
+        who = (r.get("signer") or r.get("desc") or r.get("name") or "")
+        print(f"[+] runtime/python.exe 签名有效（{who}）")
+    else:
+        raise SystemExit(
+            f"[x] runtime/python.exe 签名校验失败：{r.get('name')} — {r.get('desc')}\n"
+            "    构建已中止。请删除 dist/.cache 里的运行时重新下载。")
+
+
 def patch_pth(runtime: Path) -> None:
     """embeddable 版靠 ._pth 决定 sys.path，必须把项目根目录加进去。"""
     pth = next(runtime.glob("python*._pth"), None)
@@ -127,6 +156,7 @@ def main() -> int:
     with zipfile.ZipFile(zpath) as z:
         z.extractall(runtime)
     print(f"[+] runtime/ 解压完成（{len(list(runtime.iterdir()))} 个文件）")
+    verify_runtime(runtime)
     patch_pth(runtime)
 
     total = 0

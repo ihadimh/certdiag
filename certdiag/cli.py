@@ -59,8 +59,8 @@ def _catalog_info(path: Path) -> dict:
 
 def diagnose_one(path: Path, offline: bool, no_probe: bool, timeout: float,
                  force_catalog: bool = False, force_timestamp: bool = False,
-                 revoke_mode: str = "off") -> dict:
-    collected = collect(path)
+                 revoke_mode: str = "off", allow_private: bool = False) -> dict:
+    collected = collect(path, offline=offline)
 
     # WinVerifyTrust 只看文件自身的嵌入式签名，能给出精确 HRESULT
     wv = wv_verify(str(path), offline=offline)
@@ -84,13 +84,14 @@ def diagnose_one(path: Path, offline: bool, no_probe: bool, timeout: float,
     probes: list[dict] = []
     if not offline and not no_probe:
         urls = collected.get("crl_ocsp_urls") or []
-        probes = [p.to_dict() for p in probe_all(urls, timeout=timeout)]
+        probes = [p.to_dict() for p in probe_all(urls, timeout=timeout,
+                                                  allow_private=allow_private)]
 
     # 决定实际执行哪一档吊销检查（auto 可能因地址不可达退化为 off）
     effective, reason = revoke_policy.decide(revoke_mode, probes)
     if effective != "off" and collected.get("status"):
         dotnet_mode = revoke_policy.DOTNET_MODE[effective]
-        collected = collect(path, revoke=dotnet_mode)
+        collected = collect(path, revoke=dotnet_mode, offline=offline)
         collected["hresult"] = wv.get("hresult")
         collected["hresult_name"] = wv.get("name")
         collected["hresult_desc"] = wv.get("desc")
@@ -181,6 +182,19 @@ def filter_reports(reports: list[dict], only: str) -> list[dict]:
             if ((r.get("diagnosis") or {}).get("verdict") or "unknown") == only]
 
 
+SIGNATURE_MISSING = {"no_signature", "not_applicable", "catalog_unverified"}
+
+
+def without_signature(reports: list[dict]) -> list[dict]:
+    """返回"拿不出可验证签名"的报告（用于 --require-signature 门禁）。"""
+    out = []
+    for r in reports:
+        d = r.get("diagnosis") or {}
+        if d.get("category") in SIGNATURE_MISSING:
+            out.append(r)
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     fix_console()
     ap = argparse.ArgumentParser(
@@ -197,6 +211,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--timeout", type=float, default=5.0, help="单个网络探测超时秒数（默认 5）")
     ap.add_argument("--timestamp", action="store_true",
                     help="强制验证时间戳令牌（默认只在签名者证书过期时验证）")
+    ap.add_argument("--allow-private", action="store_true",
+                    help="允许探测内网/回环地址（证书里的地址不可信，默认拒绝）")
+    ap.add_argument("--require-signature", action="store_true",
+                    help="把「无签名 / 无法验证签名」也视为失败（退出码 1），用于签名门禁")
     ap.add_argument("--revoke", choices=list(revoke_policy.MODES), default="off",
                     help="吊销检查档位：off（默认，不查）/ cache（只用缓存）/ "
                          "auto（地址可达才查）/ online（强制联网）")
@@ -238,7 +256,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         for f in files:
             rep = diagnose_one(f, args.offline, args.no_probe, args.timeout,
-                               args.catalog, args.timestamp, args.revoke)
+                               args.catalog, args.timestamp, args.revoke,
+                               args.allow_private)
             reports.append(rep)
             if not args.quiet:
                 print("-" * 70)
@@ -273,7 +292,11 @@ def main(argv: list[str] | None = None) -> int:
         Path(args.md).write_text(text, encoding="utf-8")
         print(f"Markdown 报告已写入：{args.md}（{len(shown)} 条）")
 
-    return exit_code(reports, args.fail_on)
+    code = exit_code(reports, args.fail_on)
+    if args.require_signature and without_signature(reports):
+        print("\n --require-signature：存在没有可验证签名的文件，按失败处理", file=sys.stderr)
+        code = EXIT_INVALID
+    return code
 
 
 if __name__ == "__main__":
