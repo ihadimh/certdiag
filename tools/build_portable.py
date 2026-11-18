@@ -123,6 +123,30 @@ pause
 exit /b 1
 """
 
+LAUNCH_SHORTCUT = r"""@echo off
+chcp 65001 >nul
+cd /d "%~dp0"
+
+if not exist "%~dp0runtime\pythonw.exe" goto missing
+
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut((Join-Path ([Environment]::GetFolderPath('Desktop')) 'certdiag 证书诊断.lnk')); $s.TargetPath = '%~dp0runtime\pythonw.exe'; $s.Arguments = '-m certdiag --ui'; $s.WorkingDirectory = '%~dp0'; $s.IconLocation = '%~dp0certdiag-seal.ico,0'; $s.Description = 'certdiag 证书诊断'; $s.Save(); Write-Host '' ; Write-Host '  已创建桌面快捷方式：certdiag 证书诊断'"
+
+echo.
+pause
+exit /b
+
+:missing
+echo.
+echo   [错误] 找不到运行时：
+echo   %~dp0runtime\pythonw.exe
+echo.
+echo   请先把压缩包【完整解压】到一个文件夹，再运行本文件。
+echo.
+pause
+exit /b 1
+"""
+
+
 LAUNCH_CLI = r"""@echo off
 chcp 65001 >nul
 cd /d "%~dp0"
@@ -266,6 +290,11 @@ def main() -> int:
 
     write_cmd(out / "双击启动.cmd", LAUNCH_UI)
     write_cmd(out / "命令行诊断.cmd", LAUNCH_CLI)
+    write_cmd(out / "创建桌面快捷方式.cmd", LAUNCH_SHORTCUT)
+    ico = ROOT / "docs" / "certdiag-seal.ico"
+    if ico.exists():
+        shutil.copy2(ico, out / "certdiag-seal.ico")
+        print("[+] certdiag-seal.ico（快捷方式图标）")
     (out / "使用说明.txt").write_text(USAGE_TXT, encoding="utf-8-sig")
     print("[+] 使用说明.txt")
 
