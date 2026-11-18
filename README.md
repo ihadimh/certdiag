@@ -65,10 +65,10 @@ Windows 上签名校验失败时，系统给的往往是一句没用的话：
 
 ## 免安装便携版（推荐给不想装 Python 的人）
 
-**[⬇ 下载 certdiag-portable-1.3.0.zip](https://github.com/ihadimh/certdiag/releases/download/v1.3.0/certdiag-portable-1.3.0.zip)**（约 11 MB，解压后**双击即用**，自带 Python 运行时）
+**[⬇ 下载 certdiag-portable-1.4.0.zip](https://github.com/ihadimh/certdiag/releases/download/v1.4.0/certdiag-portable-1.4.0.zip)**（约 11 MB，解压后**双击即用**，自带 Python 运行时）
 
 ```
-certdiag-portable-1.3.0/
+certdiag-portable-1.4.0/
 ├── 双击启动.cmd      ← 打开图形界面（无黑框）
 ├── 命令行诊断.cmd    ← 把文件拖到它上面，直接出结论
 ├── runtime/          ← 自带 Python 3.12（embeddable）
