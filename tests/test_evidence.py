@@ -67,3 +67,38 @@ class TestConfidence(unittest.TestCase):
     def test_never_upgrades(self):
         level, _ = adjust_confidence("low", [], [])
         self.assertEqual(level, "low")
+
+
+class TestStrictMode(unittest.TestCase):
+    """只对能保证的事下结论：有缺口就不给 valid。"""
+
+    def _diag(self, verdict="valid", confidence="high"):
+        from certdiag.attrib import Diagnosis
+
+        return Diagnosis(category="x", verdict=verdict, cause="c",
+                         confidence=confidence, advice=[], evidence=[])
+
+    def test_unchecked_revocation_blocks_valid(self):
+        from certdiag.evidence import apply_strict
+
+        d = self._diag()
+        changed, crit = apply_strict(d, ["吊销状态（档位 off）"])
+        self.assertTrue(changed)
+        self.assertEqual(d.verdict, "unknown")
+        self.assertEqual(d.confidence, "low")
+
+    def test_strong_invalid_is_not_downgraded(self):
+        from certdiag.evidence import apply_strict
+
+        d = self._diag(verdict="invalid")
+        changed, _ = apply_strict(d, ["吊销状态（档位 off）"])
+        self.assertFalse(changed)
+        self.assertEqual(d.verdict, "invalid")
+
+    def test_catalog_recheck_is_not_critical(self):
+        from certdiag.evidence import apply_strict
+
+        d = self._diag()
+        changed, _ = apply_strict(d, ["目录签名的独立复核（成员校验依赖 Windows 的结果）"])
+        self.assertFalse(changed)
+        self.assertEqual(d.verdict, "valid")

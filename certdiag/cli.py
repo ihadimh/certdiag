@@ -62,7 +62,8 @@ def _catalog_info(path: Path) -> dict:
 
 def diagnose_one(path: Path, offline: bool, no_probe: bool, timeout: float,
                  force_catalog: bool = False, force_timestamp: bool = False,
-                 revoke_mode: str = "off", allow_private: bool = False) -> dict:
+                 revoke_mode: str = "off", allow_private: bool = False,
+                 strict: bool = False) -> dict:
     collected = collect(path, offline=offline)
 
     # 结构探测：只在扩展名像程序时做，用来区分"文件损坏"和"类型不支持"
@@ -153,6 +154,10 @@ def diagnose_one(path: Path, offline: bool, no_probe: bool, timeout: float,
     diag.signals = [s.to_dict() for s in signals]
     diag.conflicts = conflicts
     diag.not_checked = missing
+
+    # 严格模式：证据不足就不下结论（invalid 是强证据，不受影响）
+    if strict:
+        evidence_layer.apply_strict(diag, missing)
     return build_report(collected, probes, diag.to_dict(), offline,
                         catalog=catalog, timestamp=ts)
 
@@ -248,6 +253,8 @@ def main(argv: list[str] | None = None) -> int:
                     help="强制验证时间戳令牌（默认只在签名者证书过期时验证）")
     ap.add_argument("--allow-private", action="store_true",
                     help="允许探测内网/回环地址（证书里的地址不可信，默认拒绝）")
+    ap.add_argument("--strict", action="store_true",
+                    help="保守模式：任何影响结论的证据缺口（如未查吊销）都判为「无法判定」")
     ap.add_argument("--require-signature", action="store_true",
                     help="把「无签名 / 无法验证签名」也视为失败（退出码 1），用于签名门禁")
     ap.add_argument("--revoke", choices=list(revoke_policy.MODES), default="off",
@@ -294,7 +301,7 @@ def main(argv: list[str] | None = None) -> int:
             try:
                 rep = diagnose_one(f, args.offline, args.no_probe, args.timeout,
                                    args.catalog, args.timestamp, args.revoke,
-                                   args.allow_private)
+                                   args.allow_private, args.strict)
             except Exception as e:  # noqa: BLE001
                 failed.append(str(f))
                 print(f"[!] 诊断失败：{f} — {e}", file=sys.stderr)
@@ -345,6 +352,10 @@ def main(argv: list[str] | None = None) -> int:
     if failed:
         print(f"\n {len(failed)} 个文件诊断失败（工具自身出错，不是文件的问题）", file=sys.stderr)
         return EXIT_ERROR
+
+    if args.require_signature and args.fail_on == "invalid":
+        print("[提示] 门禁场景建议同时加 --fail-on unknown --strict："
+              "默认配置下「无法判定」不会让退出码变 1。", file=sys.stderr)
 
     code = exit_code(reports, args.fail_on)
     if args.require_signature and without_signature(reports):

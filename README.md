@@ -480,7 +480,7 @@ python -m certdiag app.exe --revoke=auto    # 推荐：先探路再决定要不�
 也算作失败（退出码 1）。默认的 `--fail-on invalid` 不会因为"没签名"而失败——这是两个不同的用途，
 别混用。
 
-## JSON 输出结构（v1.7.0 起固定）
+## JSON 输出结构（v1.8.0 起固定）
 
 ```json
 {
@@ -519,6 +519,26 @@ python -m certdiag app.exe --revoke=auto    # 推荐：先探路再决定要不�
 单文件和多文件是同一层结构。以前 1 条输出对象、2 条输出数组，用 `--only` 过滤后类型会变，脚本会炸。
 
 `signals` 把三个来源的原始结论摊开；`conflict` 为 true 表示「PowerShell 说有效、WinVerifyTrust 却报错」，这类输入下结论一定是 `unknown`，不会给 `valid`。
+
+## 严格模式：只对能保证的事下结论
+
+默认行为是"排障友好"的：查不到吊销只写「未检查」，结论仍是 `valid`。
+
+如果这个结论会被拿去做决定（门禁、审批、发布），用 `--strict`：
+
+```bash
+python -m certdiag app.exe --strict --revoke=auto
+```
+
+严格模式下，任何**影响结论**的证据缺口（吊销未查、时间戳绑定未验、采集失败）
+都会把结论降为 `unknown`，而不是给一个 `valid`。
+
+| 配置 | `cmd.exe`（目录签名、未查吊销） |
+|---|---|
+| 默认 | `catalog_only_trust` / **valid** / high |
+| `--strict` | 同分类，但 **unknown** / low，原因写明「证据不足：吊销状态（档位 off）」 |
+
+强证据（哈希不匹配、显式不信任、已吊销）不受影响——那些是确定结论。
 
 ## 结果该怎么读
 

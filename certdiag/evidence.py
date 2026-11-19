@@ -161,7 +161,7 @@ def not_checked(collected: dict, *, timestamp: dict | None = None,
         out.append("时间戳绑定与 TSA 信任链（messageImprint / EKU / 链时效）")
 
     if (catalog or {}).get("found"):
-        out.append("目录签名成员校验（只验证了 .cat 自身的签名）")
+        out.append("目录签名的独立复核（成员校验依赖 Windows 的结果）")
     else:
         out.append("目录签名（该文件未使用）")
     if collected.get("aia_downloads_disabled") is False:
@@ -169,6 +169,18 @@ def not_checked(collected: dict, *, timestamp: dict | None = None,
     if collected.get("status") is None:
         out.append("全部签名信息（采集失败）")
     return out
+
+
+STRICT_CRITICAL_PREFIXES = ("吊销状态", "全部签名信息", "时间戳绑定")
+
+
+def strict_critical(missing: list[str]) -> list[str]:
+    """严格模式下会导致"无法判定"的缺口。
+
+    只挑那些**直接支撑结论**的项：吊销、时间戳绑定、采集失败。
+    目录签名的独立复核不在其中——Windows 的 Valid 状态本身已包含成员校验。
+    """
+    return [m for m in missing if m.startswith(STRICT_CRITICAL_PREFIXES)]
 
 
 def adjust_confidence(base: str, conflicts: list[dict], missing: list[str]) -> tuple[str, str]:
@@ -184,3 +196,20 @@ def adjust_confidence(base: str, conflicts: list[dict], missing: list[str]) -> t
     if critical_missing and level > order["medium"]:
         return "medium", f"存在未验证项：{critical_missing[0]}"
     return base, "所有可用信号一致"
+
+
+def apply_strict(diag, missing: list[str]):
+    """严格模式：证据不足就不下结论。invalid 是强证据，不受影响。
+
+    返回 (是否降级, 原因列表)。
+    """
+    if getattr(diag, "verdict", "") == "invalid":
+        return False, []
+    critical = strict_critical(missing)
+    if not critical:
+        return False, []
+    diag.verdict = "unknown"
+    diag.cause = "证据不足，无法给确定结论：" + "；".join(critical)
+    diag.confidence = "low"
+    diag.confidence_basis = "严格模式：存在影响结论的未验证项"
+    return True, critical
