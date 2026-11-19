@@ -49,6 +49,12 @@ OCSP 只接受 POST，GET/HEAD 失败会被判为 `inconclusive`，`auto` 可能
 ### 7. 时间戳的 `messageImprint` 未校验
 只验令牌签名，没有验证"这个令牌确实对应当前文件的签名"。README 已列出。
 
+### 11. 超大请求体返回连接重置而非 413
+服务端按 Content-Length 拒绝，但客户端此时还在发送，看到的是连接中断而不是明确的状态码。
+
+### 12. 批量扫描无并发
+逐文件串行，大目录耗时线性增长。
+
 ## P3
 
 ### 8. 测试覆盖仍偏重归因函数
@@ -62,6 +68,9 @@ OCSP 只接受 POST，GET/HEAD 失败会被判为 `inconclusive`，`auto` 可能
 
 | 问题 | 修复版本 |
 |---|---|
+| HTTP chunked 分帧写成字面量 `\r\n`，批量流式输出从未可用 | v1.6.4 |
+| 输入不存在/是目录仍触发 worker 回退（白等 300~500ms） | v1.6.4 |
+| 客户端断开时服务端刷 traceback | v1.6.4 |
 | 错误码 0x800B010D 当成吊销离线（实为 CERT_E_UNTRUSTEDTESTROOT） | v1.6.0 |
 | `Revoked` 被「过期+时间戳」分支抢先判成 valid | v1.6.0 |
 | 吊销复查采集失败仍报 checked_ok | v1.6.0 |

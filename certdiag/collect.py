@@ -181,6 +181,14 @@ def collect(path: str | os.PathLike, timeout: float = 60,
     """采集单个文件；自动选择常驻 worker 或一次性 subprocess。"""
     global _worker, _use_worker
     p = str(Path(path))
+
+    # 这两种是"输入不成立"，不是采集故障：直接给干净的结论，不用起 PowerShell，
+    # 也不该触发 worker→一次性 的回退（回退只对传输层故障有意义）
+    if not os.path.exists(p):
+        return {"path": p, "error": "文件不存在", "error_kind": "not_found"}
+    if os.path.isdir(p):
+        return {"path": p, "error": "这是目录，请对单个文件诊断（或使用批量扫描）",
+                "error_kind": "is_directory"}
     if _use_worker:
         try:
             with _worker_lock:
@@ -189,9 +197,11 @@ def collect(path: str | os.PathLike, timeout: float = 60,
                 w = _worker
             _stats["worker_calls"] += 1
             res = w.collect(p, timeout=timeout, revoke=revoke, offline=offline)
+            kind = res.get("error_kind")
+            if res.get("error_kind") in ("not_found", "is_directory"):
+                return res                      # 输入问题，回退没有意义
             if res.get("error") or not res.get("status"):
-                # worker 自己重试完仍失败时返回的是错误字典（不抛异常），
-                # 这里要真的回退到一次性 subprocess，而不是把错误当结果返回
+                # worker 重试完仍失败（内部故障/超时）才回退到一次性 subprocess
                 _stats["worker_fallbacks"] += 1
                 return _collect_subprocess(p, int(timeout), revoke, offline)
             return res

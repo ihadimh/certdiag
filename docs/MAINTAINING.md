@@ -33,6 +33,15 @@ python -m certdiag "C:\Windows\System32\cmd.exe" --no-probe
 | verify.py | 系统组件 / 篡改样本 / 原始副本 / 单元测试 四项 `[OK]` |
 | cmd.exe | `catalog_only_trust`，结论句含「由有效的目录签名（catalog）覆盖」 |
 
+再跑一次真实路径审计（会真的起 PowerShell、发网络请求，约 30 秒）：
+
+```powershell
+python tools/real_path_audit.py --fast
+```
+
+输出 `docs/audit-<时间>.json`。**新增采集入口时，必须在这里加一条**——
+`--offline` 和批量流式两个缺陷都是纯函数测试抓不到的。
+
 再抽两个边界样本：
 
 ```powershell

@@ -60,14 +60,19 @@ function Get-SigRecord {
   param([string]$Path, [string]$Revoke = 'NoCheck', [bool]$Offline = $false)
 
   $rec = [ordered]@{
-    path = $null; exists = $false; size = 0; sha256 = $null
+    path = $null; exists = $false; size = 0; sha256 = $null; error_kind = $null
     status = $null; status_message = $null
     signer = $null; signer_expired = $false; timestamper = $null
     chain = $null; crl_ocsp_urls = @(); error = $null
   }
 
   try {
-    if (-not (Test-Path -LiteralPath $Path)) { throw "文件不存在：$Path" }
+    if (-not (Test-Path -LiteralPath $Path)) {
+      $rec.error = "文件不存在"; $rec.error_kind = "not_found"; return $rec
+    }
+    if ((Get-Item -LiteralPath $Path) -is [System.IO.DirectoryInfo]) {
+      $rec.error = "这是目录，请对单个文件诊断"; $rec.error_kind = "is_directory"; return $rec
+    }
     $item = Get-Item -LiteralPath $Path
     $rec.path = $item.FullName
     $rec.exists = $true

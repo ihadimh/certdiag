@@ -407,10 +407,10 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _chunk(self, data: bytes) -> None:
         """按 chunked 编码写一段数据。"""
-        self.wfile.write(("%x\\r\\n" % len(data)).encode() + data + b"\\r\\n")
+        self.wfile.write(("%x\r\n" % len(data)).encode() + data + b"\r\n")
 
     def _chunk_end(self) -> None:
-        self.wfile.write(b"0\\r\\n\\r\\n")
+        self.wfile.write(b"0\r\n\r\n")
 
     def _json(self, obj, code: int = 200):
         body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
@@ -622,6 +622,15 @@ def origin_allowed(origin: str, port: int) -> bool:
 
 
 class _Server(ThreadingHTTPServer):
+    def handle_error(self, request, client_address):
+        """客户端中途断开是常态（关页面、取消批量），不该刷 traceback。"""
+        import sys as _sys
+
+        exc = _sys.exc_info()[1]
+        if isinstance(exc, (ConnectionResetError, BrokenPipeError, ConnectionAbortedError)):
+            return
+        super().handle_error(request, client_address)
+
     """Windows 下 allow_reuse_address=1 会允许重复绑定同一端口，
     导致"已有实例就复用"的逻辑失效，这里显式关掉。"""
     allow_reuse_address = False

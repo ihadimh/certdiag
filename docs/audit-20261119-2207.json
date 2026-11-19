@@ -1,0 +1,556 @@
+[
+  {
+    "name": "collect.worker",
+    "ms": 530,
+    "keys_present": true,
+    "summary": {
+      "status": "Valid",
+      "sha256": "05A30592D2C3421C41121145C6EEFA7C81FEA6B42D6233A522240A8468326B9C",
+      "signer": {
+        "subject": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+        "issuer": "CN=Microsoft Windows Production PCA 2011, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+        "thumbprint": "58FD671E2D4D200CE92D6E799EC70DF96E6D2664",
+        "serial": "330000041331BC198807A90774000000000413",
+        "not_before": "2023-02-03T08:05:41+08:00",
+        "not_after": "2024-02-01T08:05:41+08:00",
+        "version": 3
+      }
+    },
+    "ok": true
+  },
+  {
+    "name": "collect.worker.offline",
+    "ms": 19,
+    "keys_present": true,
+    "summary": {
+      "status": "Valid",
+      "aia_downloads_disabled": false
+    },
+    "ok": true
+  },
+  {
+    "name": "collect.oneshot",
+    "ms": 544,
+    "keys_present": true,
+    "summary": {
+      "status": "Valid",
+      "sha256": "05A30592D2C3421C41121145C6EEFA7C81FEA6B42D6233A522240A8468326B9C"
+    },
+    "ok": true
+  },
+  {
+    "name": "collect.oneshot.offline",
+    "ms": 545,
+    "keys_present": true,
+    "summary": {
+      "status": "Valid",
+      "aia_downloads_disabled": false
+    },
+    "ok": true
+  },
+  {
+    "name": "collect.revoke.cache",
+    "ms": 17,
+    "keys_present": true,
+    "summary": {
+      "status": "Valid",
+      "chain": {
+        "built": false,
+        "elements": [
+          {
+            "subject": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+            "issuer": "CN=Microsoft Windows Production PCA 2011, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+            "thumbprint": "58FD671E2D4D200CE92D6E799EC70DF96E6D2664",
+            "not_before": "2023-02-03T08:05:41+08:00",
+            "not_after": "2024-02-01T08:05:41+08:00",
+            "status": [
+              {
+                "status": "NotTimeValid",
+                "info": "A required certificate is not within its validity period when verifying against the current system clock or the timestamp in the signed file.\r\n"
+              }
+            ]
+          },
+          {
+            "subject": "CN=Microsoft Windows Production PCA 2011, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+            "issuer": "CN=Microsoft Root Certificate Authority 2010, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+            "thumbprint": "580A6F4CC4E4B669B9EBDC1B2B3E087B80D0678D",
+            "not_before": "2011-10-20T02:41:42+08:00",
+            "not_after": "2026-10-20T02:51:42+08:00",
+            "status": [
+              {
+                "status": "NotTimeValid",
+                "info": "A required certificate is not within its validity period when verifying against the current system clock or the timestamp in the signed file.\r\n"
+              }
+            ]
+          },
+          {
+            "subject": "CN=Microsoft Root Certificate Authority 2010, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+            "issuer": "CN=Microsoft Root Certificate Authority 2010, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+            "thumbprint": "3B1EFD3A66EA28B16697394703A72CA340A05BD5",
+            "not_before": "2010-06-24T05:57:24+08:00",
+            "not_after": "2035-06-24T06:04:01+08:00",
+            "status": []
+          }
+        ],
+        "chain_status": [
+          {
+            "status": "NotTimeValid",
+            "info": "A required certificate is not within its validity period when verifying against the current system clock or the timestamp in the signed file.\r\n"
+          }
+        ]
+      }
+    },
+    "ok": true
+  },
+  {
+    "name": "collect.revoke.online",
+    "ms": 17,
+    "keys_present": true,
+    "summary": {
+      "status": "Valid",
+      "chain": {
+        "built": false,
+        "elements": [
+          {
+            "subject": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+            "issuer": "CN=Microsoft Windows Production PCA 2011, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+            "thumbprint": "58FD671E2D4D200CE92D6E799EC70DF96E6D2664",
+            "not_before": "2023-02-03T08:05:41+08:00",
+            "not_after": "2024-02-01T08:05:41+08:00",
+            "status": [
+              {
+                "status": "NotTimeValid",
+                "info": "A required certificate is not within its validity period when verifying against the current system clock or the timestamp in the signed file.\r\n"
+              }
+            ]
+          },
+          {
+            "subject": "CN=Microsoft Windows Production PCA 2011, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+            "issuer": "CN=Microsoft Root Certificate Authority 2010, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+            "thumbprint": "580A6F4CC4E4B669B9EBDC1B2B3E087B80D0678D",
+            "not_before": "2011-10-20T02:41:42+08:00",
+            "not_after": "2026-10-20T02:51:42+08:00",
+            "status": [
+              {
+                "status": "NotTimeValid",
+                "info": "A required certificate is not within its validity period when verifying against the current system clock or the timestamp in the signed file.\r\n"
+              }
+            ]
+          },
+          {
+            "subject": "CN=Microsoft Root Certificate Authority 2010, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+            "issuer": "CN=Microsoft Root Certificate Authority 2010, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+            "thumbprint": "3B1EFD3A66EA28B16697394703A72CA340A05BD5",
+            "not_before": "2010-06-24T05:57:24+08:00",
+            "not_after": "2035-06-24T06:04:01+08:00",
+            "status": []
+          }
+        ],
+        "chain_status": [
+          {
+            "status": "NotTimeValid",
+            "info": "A required certificate is not within its validity period when verifying against the current system clock or the timestamp in the signed file.\r\n"
+          }
+        ]
+      }
+    },
+    "ok": true
+  },
+  {
+    "name": "collect.missing",
+    "ms": 0,
+    "keys_present": true,
+    "summary": {
+      "error": "文件不存在"
+    },
+    "error_kind": "not_found",
+    "error": "文件不存在",
+    "ok": true
+  },
+  {
+    "name": "collect.directory",
+    "ms": 0,
+    "keys_present": true,
+    "summary": {
+      "error": "这是目录，请对单个文件诊断（或使用批量扫描）"
+    },
+    "error_kind": "is_directory",
+    "error": "这是目录，请对单个文件诊断（或使用批量扫描）",
+    "ok": true
+  },
+  {
+    "name": "winverify.system-file",
+    "ms": 3,
+    "keys_present": true,
+    "summary": {
+      "hresult": 2148204800,
+      "name": "TRUST_E_NOSIGNATURE"
+    },
+    "ok": true
+  },
+  {
+    "name": "winverify.tampered",
+    "ms": 18,
+    "keys_present": true,
+    "summary": {
+      "hresult": 2148098064,
+      "name": "TRUST_E_BAD_DIGEST"
+    },
+    "ok": true
+  },
+  {
+    "name": "winverify.cache-mode",
+    "ms": 0,
+    "keys_present": true,
+    "summary": {
+      "hresult": 2148204800,
+      "name": "TRUST_E_NOSIGNATURE"
+    },
+    "ok": true
+  },
+  {
+    "name": "winverify.missing",
+    "ms": 0,
+    "keys_present": true,
+    "summary": {
+      "hresult": 2148081667,
+      "error": null
+    },
+    "ok": true
+  },
+  {
+    "name": "catalog.system-file",
+    "ms": 4,
+    "keys_present": false,
+    "summary": {
+      "catalog_path": "C:\\WINDOWS\\system32\\CatRoot\\{F750E6C3-38EE-11D1-85E5-00C04FC295EE}\\Microsoft-Windows-Client-Desktop-Required-Package0511~31bf3856ad364e35~amd64~~10.0.22621.2506.cat"
+    },
+    "ok": true
+  },
+  {
+    "name": "catalog.unsigned",
+    "ms": 1,
+    "keys_present": false,
+    "summary": {},
+    "ok": true
+  },
+  {
+    "name": "catalog.missing",
+    "ms": 0,
+    "keys_present": true,
+    "summary": {
+      "error": "文件不存在"
+    },
+    "error": "文件不存在",
+    "ok": true
+  },
+  {
+    "name": "timestamp.signed",
+    "ms": 395,
+    "keys_present": true,
+    "summary": {
+      "has_signature": true,
+      "token_ok": true,
+      "tsa_subject": "CN=Microsoft Public RSA Time Stamping Authority, OU=nShield TSS ESN:7D00-05E0-D947, OU=Microsoft America Operations, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    "ok": true
+  },
+  {
+    "name": "timestamp.truncated",
+    "ms": 364,
+    "keys_present": true,
+    "summary": {
+      "error": "签名目录偏移越界",
+      "has_signature": false
+    },
+    "error": "签名目录偏移越界",
+    "ok": true
+  },
+  {
+    "name": "timestamp.system-file",
+    "ms": 344,
+    "keys_present": true,
+    "summary": {
+      "has_signature": false
+    },
+    "error": "没有嵌入式签名",
+    "ok": true
+  },
+  {
+    "name": "timestamp.missing",
+    "ms": 0,
+    "keys_present": true,
+    "summary": {
+      "error": "文件不存在"
+    },
+    "error": "文件不存在",
+    "ok": true
+  },
+  {
+    "name": "timestamp.empty",
+    "ms": 338,
+    "keys_present": true,
+    "summary": {
+      "error": "不是 PE 文件"
+    },
+    "error": "不是 PE 文件",
+    "ok": true
+  },
+  {
+    "name": "probe.private",
+    "ms": 6,
+    "keys_present": true,
+    "summary": {
+      "category": "skipped_private",
+      "detail": "目标解析到内网/回环地址，默认不探测（证书里的地址不可信）；确需探测请加 --allow-private"
+    },
+    "ok": true
+  },
+  {
+    "name": "probe.public",
+    "ms": 892,
+    "keys_present": true,
+    "summary": {
+      "category": "ok"
+    },
+    "ok": true
+  },
+  {
+    "name": "probe.ocsp",
+    "ms": 456,
+    "keys_present": true,
+    "summary": {
+      "category": "inconclusive"
+    },
+    "ok": true
+  },
+  {
+    "name": "probe.bad-url",
+    "ms": 0,
+    "keys_present": true,
+    "summary": {
+      "category": "dns_fail"
+    },
+    "ok": true
+  },
+  {
+    "name": "probe.nxdomain",
+    "ms": 7,
+    "keys_present": true,
+    "summary": {
+      "category": "dns_fail"
+    },
+    "ok": true
+  },
+  {
+    "name": "diagnose.offline",
+    "ms": 385,
+    "keys_present": true,
+    "summary": {
+      "diagnosis": {
+        "category": "catalog_only_trust",
+        "verdict": "valid",
+        "cause": "文件自身没有嵌入式签名，由有效的目录签名（catalog）覆盖",
+        "confidence": "high",
+        "advice": [
+          "这是系统组件的常见形态，不需要处理",
+          "如需核对，可查看报告中的目录签名路径"
+        ],
+        "evidence": [
+          "Authenticode 状态：Valid",
+          "系统消息：签名已通过验证。",
+          "证书链标志：NotTimeValid",
+          "WinVerifyTrust：0x800B0100 TRUST_E_NOSIGNATURE",
+          "目录签名状态：Valid",
+          "目录文件：C:\\WINDOWS\\system32\\CatRoot\\{F750E6C3-38EE-11D1-85E5-00C04FC295EE}\\Microsoft-Windows-Client-Desktop-Required-Package0511~31bf3856ad364e35~amd64~~10.0.22621.2506.cat"
+        ]
+      },
+      "signals": {
+        "authenticode_status": "Valid",
+        "winverifytrust": "0x800B0100",
+        "pe": {
+          "is_pe": true,
+          "truncated": false,
+          "trailing_after_signature": 0
+        },
+        "aia_downloads_disabled": false,
+        "conflict": false
+      }
+    },
+    "ok": true
+  },
+  {
+    "name": "diagnose.tampered",
+    "ms": 444,
+    "keys_present": true,
+    "summary": {
+      "diagnosis": {
+        "category": "hresult:TRUST_E_BAD_DIGEST",
+        "verdict": "invalid",
+        "cause": "文件内容与签名不匹配（被修改或损坏）",
+        "confidence": "high",
+        "advice": [
+          "该错误码含义明确，按描述定位即可",
+          "如需进一步确认，可查看报告的证书链与探测结果"
+        ],
+        "evidence": [
+          "Authenticode 状态：HashMismatch",
+          "系统消息：未授权的用户或进程可能更改了文件 C:\\Users\\ASUS\\Documents\\deepseek-harness\\default-workspace\\certdiag\\samples\\tampered.exe 的内容，因为该文件的哈希与数字签名中存储的哈希不匹配。无法在指定的系统上运行该脚本。有关详细信息，请运行 Get-Help about_Signing。",
+          "证书链标志：NotTimeValid",
+          "HRESULT 0x80096010 = TRUST_E_BAD_DIGEST"
+        ]
+      }
+    },
+    "ok": true
+  },
+  {
+    "name": "edge.zero",
+    "ms": 15,
+    "keys_present": true,
+    "summary": {
+      "diagnosis": {
+        "category": "not_pe_file",
+        "verdict": "unknown",
+        "cause": "扩展名是程序文件，但内容不是有效的 PE 结构（可能已损坏或改了扩展名）",
+        "confidence": "medium",
+        "advice": [
+          "重新获取该文件，先排除下载不完整",
+          "如果确实不是程序，改成正确的扩展名再看"
+        ],
+        "evidence": [
+          "Authenticode 状态：UnknownError",
+          "系统消息：The form specified for the subject is not one supported or known by the specified trust provider",
+          "PE 检测：没有 MZ 头，不是 PE 文件"
+        ]
+      }
+    },
+    "ok": true
+  },
+  {
+    "name": "edge.nonpe",
+    "ms": 22,
+    "keys_present": true,
+    "summary": {
+      "diagnosis": {
+        "category": "not_pe_file",
+        "verdict": "unknown",
+        "cause": "扩展名是程序文件，但内容不是有效的 PE 结构（可能已损坏或改了扩展名）",
+        "confidence": "medium",
+        "advice": [
+          "重新获取该文件，先排除下载不完整",
+          "如果确实不是程序，改成正确的扩展名再看"
+        ],
+        "evidence": [
+          "Authenticode 状态：UnknownError",
+          "系统消息：The form specified for the subject is not one supported or known by the specified trust provider",
+          "PE 检测：没有 MZ 头，不是 PE 文件"
+        ]
+      }
+    },
+    "ok": true
+  },
+  {
+    "name": "edge.spaces",
+    "ms": 7,
+    "keys_present": true,
+    "summary": {
+      "diagnosis": {
+        "category": "not_pe_file",
+        "verdict": "unknown",
+        "cause": "扩展名是程序文件，但内容不是有效的 PE 结构（可能已损坏或改了扩展名）",
+        "confidence": "medium",
+        "advice": [
+          "重新获取该文件，先排除下载不完整",
+          "如果确实不是程序，改成正确的扩展名再看"
+        ],
+        "evidence": [
+          "Authenticode 状态：UnknownError",
+          "系统消息：The form specified for the subject is not one supported or known by the specified trust provider",
+          "PE 检测：没有 MZ 头，不是 PE 文件"
+        ]
+      }
+    },
+    "ok": true
+  },
+  {
+    "name": "edge.brackets",
+    "ms": 6,
+    "keys_present": true,
+    "summary": {
+      "diagnosis": {
+        "category": "not_pe_file",
+        "verdict": "unknown",
+        "cause": "扩展名是程序文件，但内容不是有效的 PE 结构（可能已损坏或改了扩展名）",
+        "confidence": "medium",
+        "advice": [
+          "重新获取该文件，先排除下载不完整",
+          "如果确实不是程序，改成正确的扩展名再看"
+        ],
+        "evidence": [
+          "Authenticode 状态：UnknownError",
+          "系统消息：The form specified for the subject is not one supported or known by the specified trust provider",
+          "PE 检测：没有 MZ 头，不是 PE 文件"
+        ]
+      }
+    },
+    "ok": true
+  },
+  {
+    "name": "edge.unicode",
+    "ms": 5,
+    "keys_present": true,
+    "summary": {
+      "diagnosis": {
+        "category": "not_pe_file",
+        "verdict": "unknown",
+        "cause": "扩展名是程序文件，但内容不是有效的 PE 结构（可能已损坏或改了扩展名）",
+        "confidence": "medium",
+        "advice": [
+          "重新获取该文件，先排除下载不完整",
+          "如果确实不是程序，改成正确的扩展名再看"
+        ],
+        "evidence": [
+          "Authenticode 状态：未知",
+          "PE 检测：没有 MZ 头，不是 PE 文件"
+        ]
+      }
+    },
+    "ok": true
+  },
+  {
+    "name": "edge.locked",
+    "ms": 436,
+    "keys_present": true,
+    "summary": {
+      "diagnosis": {
+        "category": "not_pe_file",
+        "verdict": "unknown",
+        "cause": "扩展名是程序文件，但内容不是有效的 PE 结构（可能已损坏或改了扩展名）",
+        "confidence": "medium",
+        "advice": [
+          "重新获取该文件，先排除下载不完整",
+          "如果确实不是程序，改成正确的扩展名再看"
+        ],
+        "evidence": [
+          "Authenticode 状态：未知",
+          "PE 检测：没有 MZ 头，不是 PE 文件"
+        ]
+      }
+    },
+    "ok": true
+  },
+  {
+    "name": "worker.killed-then-recover",
+    "ms": 1598,
+    "keys_present": true,
+    "summary": {
+      "status": "Valid",
+      "stats": {
+        "worker_calls": 15,
+        "subprocess_calls": 3,
+        "worker_fallbacks": 1
+      }
+    },
+    "ok": true
+  }
+]
