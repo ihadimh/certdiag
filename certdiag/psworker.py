@@ -100,7 +100,12 @@ function Get-SigRecord {
       $chain = New-Object System.Security.Cryptography.X509Certificates.X509Chain
       $chain.ChainPolicy.RevocationMode = [System.Security.Cryptography.X509Certificates.X509RevocationMode]::$Revoke
     # 离线模式：连中间证书（AIA）都不许下载，否则离线就是假的
-    if ($Offline) { $chain.ChainPolicy.DisableCertificateDownloads = $true }
+    if ($Offline -and ($chain.ChainPolicy.PSObject.Properties.Name -contains 'DisableCertificateDownloads')) {
+      $chain.ChainPolicy.DisableCertificateDownloads = $true
+      $rec.aia_downloads_disabled = $true
+    } else {
+      $rec.aia_downloads_disabled = $false
+    }
       $chain.ChainPolicy.RevocationFlag = [System.Security.Cryptography.X509Certificates.X509RevocationFlag]::ExcludeRoot
       $built = $chain.Build($cert)
 

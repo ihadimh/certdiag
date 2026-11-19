@@ -480,7 +480,7 @@ python -m certdiag app.exe --revoke=auto    # 推荐：先探路再决定要不�
 也算作失败（退出码 1）。默认的 `--fail-on invalid` 不会因为"没签名"而失败——这是两个不同的用途，
 别混用。
 
-## JSON 输出结构（v1.6.2 起固定）
+## JSON 输出结构（v1.6.3 起固定）
 
 ```json
 {
@@ -489,11 +489,24 @@ python -m certdiag app.exe --revoke=auto    # 推荐：先探路再决定要不�
   "tool_version": "1.6.0",
   "generated_at": "2026-11-19T07:30:00+08:00",
   "count": 2,
-  "reports": [ ... ]
+  "reports": [
+    {
+      "signals": {
+        "authenticode_status": "Valid",
+        "winverifytrust": "0x80096011",
+        "pe": {"is_pe": true, "truncated": false, "trailing_after_signature": 0},
+        "aia_downloads_disabled": false,
+        "conflict": true
+      },
+      "...": "其余字段"
+    }
+  ]
 }
 ```
 
 单文件和多文件是同一层结构。以前 1 条输出对象、2 条输出数组，用 `--only` 过滤后类型会变，脚本会炸。
+
+`signals` 把三个来源的原始结论摊开；`conflict` 为 true 表示「PowerShell 说有效、WinVerifyTrust 却报错」，这类输入下结论一定是 `unknown`，不会给 `valid`。
 
 ## 结果该怎么读
 

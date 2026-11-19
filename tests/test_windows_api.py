@@ -74,3 +74,39 @@ class TestTimestampApi(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+@unittest.skipUnless(WINDOWS, "仅 Windows")
+class TestCollectPaths(unittest.TestCase):
+    """采集路径的回归：这两条路都曾经因为参数/属性问题整条挂掉。"""
+
+    def test_oneshot_offline_succeeds(self):
+        from certdiag.collect import _collect_subprocess
+
+        r = _collect_subprocess(str(CMD), 60, "NoCheck", "true")
+        self.assertIsNotNone(r.get("status"), f"一次性采集失败：{r.get('error')}")
+        # PS 5.1 没有这个属性，应如实报 False 而不是抛异常
+        self.assertIn("aia_downloads_disabled", r)
+
+    def test_worker_offline_succeeds(self):
+        from certdiag.psworker import PowerShellWorker
+
+        w = PowerShellWorker()
+        try:
+            r = w.collect(str(CMD), 30, "NoCheck", True)
+            self.assertIsNotNone(r.get("status"), f"worker 采集失败：{r.get('error')}")
+            self.assertIn("aia_downloads_disabled", r)
+        finally:
+            w.close()
+
+
+@unittest.skipUnless(WINDOWS, "仅 Windows")
+class TestSignalsSummary(unittest.TestCase):
+    def test_conflict_flagged_when_status_and_hresult_disagree(self):
+        from certdiag.report import _signals
+
+        s = _signals({"status": "Valid", "hresult": 0x80096011})
+        self.assertTrue(s["conflict"])
+        s2 = _signals({"status": "Valid", "hresult": 0})
+        self.assertFalse(s2["conflict"])
+        s3 = _signals({"status": "Valid", "hresult": 0x800B0100})
+        self.assertFalse(s3["conflict"], "目录签名场景的正常返回不算冲突")

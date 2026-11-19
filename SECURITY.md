@@ -42,8 +42,12 @@ CRL/OCSP 地址取自文件的证书，属于**不可信输入**。默认策略�
 
 诊断需要判断"吊销状态能不能查到"，所以会访问证书里记录的 CRL/OCSP 地址（通常是 `crl*.digicert.com`、`www.microsoft.com/pkiops/...` 这类）。
 
-如果不想产生任何网络请求：`--offline`（同时关闭探测、吊销联网检查与证书链的 AIA 下载），
-或 `--no-probe --revoke=off`（只关闭主动探测）。
+如果不想产生任何网络请求：`--offline`（关闭探测、吊销联网检查，并在运行时支持时关闭证书链 AIA 下载）。
+
+**关于 AIA 下载的限制**：`DisableCertificateDownloads` 只在 .NET Core / 新版运行时存在。
+Windows PowerShell 5.1（.NET Framework 4.8）**没有这个属性**，因此在该环境下离线模式无法
+禁止链构建阶段的中间证书下载。报告里的 `signals.aia_downloads_disabled` 会如实给出
+`true/false`；要绝对隔离网络，请在离线机器或断网环境中运行。
 
 ## 这个工具不能证明什么
 

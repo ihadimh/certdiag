@@ -21,7 +21,7 @@ from pathlib import Path
 from .psworker import PowerShellWorker, hidden_kwargs
 
 PS_SCRIPT = r"""
-param([string]$Path, [string]$Out, [string]$Revoke = 'NoCheck', [bool]$Offline = $false)
+param([string]$Path, [string]$Out, [string]$Revoke = 'NoCheck', [string]$Offline = 'false')
 
 $ErrorActionPreference = 'Stop'
 $result = [ordered]@{
@@ -76,7 +76,14 @@ try {
 
     $chain = New-Object System.Security.Cryptography.X509Certificates.X509Chain
     $chain.ChainPolicy.RevocationMode = [System.Security.Cryptography.X509Certificates.X509RevocationMode]::$Revoke
-  if ($Offline) { $chain.ChainPolicy.DisableCertificateDownloads = $true }
+  # DisableCertificateDownloads 只在 .NET Core / 新版上有；PS 5.1 (Framework 4.8) 没有这个属性，
+  # 直接赋值会抛异常并让整个采集失败。这里先探测是否存在，并把结果写进报告。
+  if ($Offline -eq 'true' -and ($chain.ChainPolicy.PSObject.Properties.Name -contains 'DisableCertificateDownloads')) {
+    $chain.ChainPolicy.DisableCertificateDownloads = $true
+    $result.aia_downloads_disabled = $true
+  } else {
+    $result.aia_downloads_disabled = $false
+  }
     $chain.ChainPolicy.RevocationFlag = [System.Security.Cryptography.X509Certificates.X509RevocationFlag]::ExcludeRoot
     $built = $chain.Build($cert)
 

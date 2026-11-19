@@ -54,6 +54,33 @@ CATEGORY_LABEL = {
 }
 
 
+def _signals(collected: dict) -> dict:
+    """把三个来源的原始结论摊开，并标出互相矛盾的情况。
+
+    工具的结论建立在系统 API 之上；当 API 之间不一致时，用户有权看到原始值，
+    而不是只看到我们挑出来的那一个。
+    """
+    status = collected.get("status") or ""
+    hr = collected.get("hresult")
+    try:
+        hr_hex = f"0x{int(hr):08X}" if hr is not None else None
+    except (TypeError, ValueError):
+        hr_hex = None
+    # 0x800B0100 = 没有嵌入式签名（目录签名场景的正常返回），0 = 通过
+    conflict = bool(status == "Valid" and hr is not None and hr not in (0, 0x800B0100))
+    return {
+        "authenticode_status": status or None,
+        "winverifytrust": hr_hex,
+        "pe": {
+            "is_pe": (collected.get("pe") or {}).get("is_pe"),
+            "truncated": (collected.get("pe") or {}).get("truncated"),
+            "trailing_after_signature": (collected.get("pe") or {}).get("trailing_after_signature"),
+        },
+        "aia_downloads_disabled": collected.get("aia_downloads_disabled"),
+        "conflict": conflict,
+    }
+
+
 def build_report(collected: dict, probes: list[dict], diagnosis: dict, offline: bool,
                  catalog: dict | None = None, timestamp: dict | None = None) -> dict:
     return {
@@ -80,6 +107,7 @@ def build_report(collected: dict, probes: list[dict], diagnosis: dict, offline: 
         "chain": collected.get("chain"),
         "catalog": catalog or {},
         "timestamp": timestamp or {},
+        "signals": _signals(collected),
         "revocation_check": collected.get("revocation") or {},
         "revocation": {
             "urls": collected.get("crl_ocsp_urls") or [],

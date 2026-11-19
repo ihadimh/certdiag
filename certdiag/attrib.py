@@ -193,7 +193,7 @@ def diagnose(inp: DiagInput) -> Diagnosis:
                 confidence="medium",
                 advice=["确认文件是否由该证书正常签发",
                         "核对链上根证书的 EKU 是否包含代码签名"],
-                evidence=evidence + [f"WinVerifyTrust：0x{hr:08X} {hname}"])
+                evidence=evidence)
         if hr == 0x80096011:
             return Diagnosis(
                 category="malformed_signature", verdict=VERDICT_UNKNOWN,
@@ -201,7 +201,7 @@ def diagnose(inp: DiagInput) -> Diagnosis:
                 confidence="medium",
                 advice=["用 signtool verify /pa /v 复核同一文件",
                         "不要仅凭这个码判定文件被篡改"],
-                evidence=evidence + [f"WinVerifyTrust：0x{hr:08X} {hname}"])
+                evidence=evidence)
         return Diagnosis(
             category="unexplained_hresult", verdict=VERDICT_UNKNOWN,
             cause=f"系统状态是 Valid，但 WinVerifyTrust 返回 0x{hr:08X}（{hname}：{hdesc}），本工具无法解释这组矛盾",

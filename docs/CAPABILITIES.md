@@ -19,6 +19,7 @@
 | 吊销检查（四档） | `off/cache/auto/online`，`auto` 先探路再决定 | `--revoke=auto` 的报告行「吊销：已检查」 |
 | 识别文件损坏 | MZ/PE 头校验、证书表越界、签名后追加数据 | 截断样本 → `corrupt_pe`；尾部追加 → 证据里多一行 |
 | 批量与流水线 | 目录扫描、NDJSON 流式、固定 JSON 结构、退出码 | `--json` 输出的顶层键固定 |
+| 暴露信号冲突 | 报告 `signals` 字段摊开 PowerShell 状态、WinVerifyTrust 码、PE 结构，并给 `conflict` 标记 | 构造 Valid + 非零 HRESULT，`conflict` 应为 true |
 
 ## 二、不能做什么
 
