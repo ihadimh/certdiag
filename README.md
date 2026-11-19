@@ -480,17 +480,29 @@ python -m certdiag app.exe --revoke=auto    # 推荐：先探路再决定要不�
 也算作失败（退出码 1）。默认的 `--fail-on invalid` 不会因为"没签名"而失败——这是两个不同的用途，
 别混用。
 
-## JSON 输出结构（v1.6.4 起固定）
+## JSON 输出结构（v1.7.0 起固定）
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "tool": "certdiag",
   "tool_version": "1.6.0",
   "generated_at": "2026-11-19T07:30:00+08:00",
   "count": 2,
   "reports": [
     {
+      "evidence": [
+        {"source": "powershell", "name": "Authenticode 状态", "value": "Valid",
+         "weight": "high", "note": "…"},
+        {"source": "winverifytrust", "name": "WinVerifyTrust",
+         "value": "0x80096011 TRUST_E_MALFORMED_SIGNATURE", "weight": "medium", "note": "…"}
+      ],
+      "conflicts": [
+        {"a": "powershell: Valid", "b": "winverifytrust: 0x80096011",
+         "reason": "系统状态说有效，WinVerifyTrust 却报错"}
+      ],
+      "not_checked": ["吊销状态（档位 off）", "时间戳绑定与 TSA 信任链"],
+      "confidence_basis": "证据之间存在冲突，无法给出一致结论",
       "signals": {
         "authenticode_status": "Valid",
         "winverifytrust": "0x80096011",

@@ -82,6 +82,10 @@ class Diagnosis:
     confidence: str                        # high / medium / low
     advice: list[str] = field(default_factory=list)
     evidence: list[str] = field(default_factory=list)
+    signals: list = field(default_factory=list)        # 结构化证据（source/value/weight）
+    conflicts: list = field(default_factory=list)      # 互相矛盾的信号对
+    not_checked: list = field(default_factory=list)    # 明确未验证的项
+    confidence_basis: str = ""                          # 置信度的推导依据
 
     def to_dict(self) -> dict:
         return asdict(self)

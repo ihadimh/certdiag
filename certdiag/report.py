@@ -107,7 +107,12 @@ def build_report(collected: dict, probes: list[dict], diagnosis: dict, offline: 
         "chain": collected.get("chain"),
         "catalog": catalog or {},
         "timestamp": timestamp or {},
+        "schema_version": 2,
         "signals": _signals(collected),
+        "evidence": diagnosis.get("signals") or [],
+        "conflicts": diagnosis.get("conflicts") or [],
+        "not_checked": diagnosis.get("not_checked") or [],
+        "confidence_basis": diagnosis.get("confidence_basis") or "",
         "revocation_check": collected.get("revocation") or {},
         "revocation": {
             "urls": collected.get("crl_ocsp_urls") or [],
@@ -211,6 +216,16 @@ def render_markdown(report: dict) -> str:
     lines.append("## 四、目录签名（Catalog）")
     lines.append("")
     cat = report.get("catalog") or {}
+    d0 = report.get("diagnosis") or {}
+    for c in (d0.get("conflicts") or []):
+        out.append(f"冲突：{c.get('a')} ⟷ {c.get('b')}（{c.get('reason')}）")
+    basis = d0.get("confidence_basis")
+    if basis:
+        out.append(f"置信度依据：{basis}")
+    missing = d0.get("not_checked") or []
+    if missing:
+        out.append("未验证：" + "；".join(missing))
+
     rc = report.get("revocation_check") or {}
     if rc:
         from .revoke import label as revoke_label
@@ -286,6 +301,12 @@ def render_console(report: dict) -> str:
         f"结论：{VERDICT_LABEL.get(d['verdict'], d['verdict'])} — {d['cause']}",
         f"分类：{d['category']}  置信度：{d['confidence']}",
     ]
+    for c in (d.get("conflicts") or []):
+        out.append(f"冲突：{c.get('a')} vs {c.get('b')} —— {c.get('reason')}")
+    if d.get("confidence_basis"):
+        out.append(f"置信度依据：{d['confidence_basis']}")
+    if d.get("not_checked"):
+        out.append("未验证：" + "；".join(d["not_checked"]))
     rc = report.get("revocation_check") or {}
     if rc:
         from .revoke import label as revoke_label

@@ -18,6 +18,7 @@ from .collect import close as close_worker, collect
 from .probe import probe_all
 from .report import build_report, dump_json, render_console, render_markdown
 from . import revoke as revoke_policy
+from . import evidence as evidence_layer
 from .pe import inspect as pe_inspect, looks_like_pe_name
 from .timestamp import verify as timestamp_verify
 from .winverify import verify as wv_verify
@@ -139,6 +140,19 @@ def diagnose_one(path: Path, offline: bool, no_probe: bool, timeout: float,
     diag = diagnose_from_collect(collected, probes, offline=offline,
                                  catalog=catalog, timestamp=ts,
                                  revocation=revocation, pe=pe_info)
+
+    # 证据层：把信号摊开、找冲突、列出未检查项，并据此重算置信度
+    signals = evidence_layer.collect_signals(
+        collected, catalog=catalog, timestamp=ts, revocation=revocation)
+    conflicts = evidence_layer.find_conflicts(signals, collected)
+    missing = evidence_layer.not_checked(collected, timestamp=ts,
+                                       revocation=revocation, catalog=catalog)
+    confidence, basis = evidence_layer.adjust_confidence(diag.confidence, conflicts, missing)
+    diag.confidence = confidence
+    diag.confidence_basis = basis
+    diag.signals = [s.to_dict() for s in signals]
+    diag.conflicts = conflicts
+    diag.not_checked = missing
     return build_report(collected, probes, diag.to_dict(), offline,
                         catalog=catalog, timestamp=ts)
 
@@ -314,7 +328,7 @@ def main(argv: list[str] | None = None) -> int:
         # 以前"1 条输出对象、多条输出数组"，做 --only 过滤后类型会变，脚本会炸。
         from . import __version__ as _ver
         dump_json({
-            "schema_version": 1,
+            "schema_version": 2,
             "tool": "certdiag",
             "tool_version": _ver,
             "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
