@@ -257,9 +257,10 @@ def main(argv: list[str] | None = None) -> int:
                     help="保守模式：任何影响结论的证据缺口（如未查吊销）都判为「无法判定」")
     ap.add_argument("--require-signature", action="store_true",
                     help="把「无签名 / 无法验证签名」也视为失败（退出码 1），用于签名门禁")
-    ap.add_argument("--revoke", choices=list(revoke_policy.MODES), default="off",
-                    help="吊销检查档位：off（默认，不查）/ cache（只用缓存）/ "
-                         "auto（地址可达才查）/ online（强制联网）")
+    ap.add_argument("--revoke", choices=list(revoke_policy.MODES),
+                    default=revoke_policy.DEFAULT,
+                    help="吊销检查档位：cache（默认，只读本地缓存）/ off（不查）/ "
+                         "auto（探测可达才联网查）/ online（强制联网）")
     ap.add_argument("-q", "--quiet", action="store_true", help="批量模式下只输出汇总")
     ap.add_argument("--only", choices=["all", "invalid", "unknown", "valid"], default="all",
                     help="只输出指定结论的报告（默认 all）")
@@ -276,6 +277,11 @@ def main(argv: list[str] | None = None) -> int:
     except revoke_policy.RevokePolicyError as e:
         print(f"参数错误：{e}", file=sys.stderr)
         return EXIT_ERROR
+
+    if args.no_probe and args.revoke in ("auto", "online"):
+        print("[提示] --no-probe 与 --revoke=" + args.revoke +
+              " 冲突：auto 依赖探测结果判断可达性，没有探测会退化为「不查」。"
+              " 需要联网查解除 --no-probe。", file=sys.stderr)
 
     if args.ui:
         from .ui import serve

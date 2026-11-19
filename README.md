@@ -409,13 +409,13 @@ python -m unittest discover -s tests -v
 
 | 档位 | 行为 | 耗时 |
 |---|---|---|
-| `off`（默认） | 不查。结论写"未检查"，绝不写"通过" | 0 |
-| `cache` | 只用本地 CRL 缓存（`X509RevocationMode.Offline`） | < 50 ms |
-| `auto` | 先探 CRL/OCSP 地址，可达才联网查，否则放弃并说明原因 | 0.3~15 s |
+| `off` | 不查。结论写"未检查"，绝不写"通过" | 0 |
+| `cache`（默认） | 只用本地 CRL 缓存（`X509RevocationMode.Offline`） | +5%（约 15 ms/文件） |
+| `auto` | 先探 CRL/OCSP 地址，可达才联网查，否则放弃并说明原因 | 0.3~15 s（批量约 +80%） |
 | `online` | 强制联网查（`WTD_REVOKE_WHOLECHAIN`） | 2~30 s |
 
 ```bash
-python -m certdiag app.exe                  # off：结论是「未检查」
+python -m certdiag app.exe                  # 默认 cache：命中就给结论
 python -m certdiag app.exe --revoke=cache   # 毫秒级，缓存命中才有结论
 python -m certdiag app.exe --revoke=auto    # 推荐：先探路再决定要不要查
 ```
@@ -454,6 +454,9 @@ python -m certdiag app.exe --revoke=auto    # 推荐：先探路再决定要不�
 
 `--offline` 与 `--revoke=auto|online` 互斥，会直接报错退出（退出码 3）。
 
+`--no-probe` 与 `--revoke=auto` 同时出现会提示：auto 依赖探测结果判断可达性，
+没有探测会退化为「不查」。想联网查就解除 `--no-probe`。
+
 离线模式除了不跑探测，还会给证书链设置 `DisableCertificateDownloads = $true`——
 否则链构建仍可能通过 AIA 去下载中间证书，"离线"就名不副实。
 
@@ -480,7 +483,7 @@ python -m certdiag app.exe --revoke=auto    # 推荐：先探路再决定要不�
 也算作失败（退出码 1）。默认的 `--fail-on invalid` 不会因为"没签名"而失败——这是两个不同的用途，
 别混用。
 
-## JSON 输出结构（v1.8.0 起固定）
+## JSON 输出结构（v1.8.1 起固定）
 
 ```json
 {
@@ -533,10 +536,10 @@ python -m certdiag app.exe --strict --revoke=auto
 严格模式下，任何**影响结论**的证据缺口（吊销未查、时间戳绑定未验、采集失败）
 都会把结论降为 `unknown`，而不是给一个 `valid`。
 
-| 配置 | `cmd.exe`（目录签名、未查吊销） |
+| 配置 | `cmd.exe`（目录签名） |
 |---|---|
-| 默认 | `catalog_only_trust` / **valid** / high |
-| `--strict` | 同分类，但 **unknown** / low，原因写明「证据不足：吊销状态（档位 off）」 |
+| 默认（cache 命中） | `catalog_only_trust` / **valid** / high，吊销显示「已检查」 |
+| `--revoke=off --strict` | 同分类，但 **unknown** / low，原因写明「证据不足：吊销状态（档位 off）」 |
 
 强证据（哈希不匹配、显式不信任、已吊销）不受影响——那些是确定结论。
 

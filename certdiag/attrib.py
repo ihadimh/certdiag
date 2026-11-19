@@ -444,8 +444,17 @@ def diagnose(inp: DiagInput) -> Diagnosis:
                         "若确认是误吊销，联系签发机构核实"],
                 evidence=evidence + [f"吊销检查：{revoke_label(rev)}"])
 
-        # 离线模式下必须说清"没查吊销"，不能写"吊销检查通过"
+        # 离线模式：如果吊销用的是本地缓存且命中了，就如实说"用缓存查过"，
+        # 不能一边写"未做吊销检查"、一边在末行写"已检查"
         if inp.offline:
+            if rev.get("checked"):
+                return Diagnosis(
+                    category="valid_revocation_checked_ok", verdict=VERDICT_VALID,
+                    cause="签名与证书链有效；吊销状态已用本地缓存检查通过（离线）",
+                    confidence="high",
+                    advice=["离线结论依赖本机缓存，可能滞后于最新的 CRL/OCSP",
+                            "需要最新状态时联网重跑一次"],
+                    evidence=evidence + [f"吊销检查：{revoke_label(rev)}"])
             return Diagnosis(
                 category="valid_offline", verdict=VERDICT_VALID,
                 cause="签名与证书链有效；离线模式未做吊销检查",

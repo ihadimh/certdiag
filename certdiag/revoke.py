@@ -22,6 +22,10 @@ from __future__ import annotations
 
 MODES = ("off", "cache", "auto", "online")
 
+# 默认 cache：只读本地缓存的吊销名单，通常几十毫秒，
+# 命中就给出结论，未命中如实说"未检查"。
+DEFAULT = "cache"
+
 # 各档位对应的 .NET X509RevocationMode
 DOTNET_MODE = {
     "off": "NoCheck",
@@ -43,7 +47,7 @@ class RevokePolicyError(ValueError):
 
 
 def normalize(mode: str | None) -> str:
-    m = (mode or "off").strip().lower()
+    m = (mode or DEFAULT).strip().lower()
     if m not in MODES:
         raise RevokePolicyError(f"未知的吊销检查模式：{mode}（可选 {', '.join(MODES)}）")
     return m

@@ -21,8 +21,8 @@ class TestNormalize(unittest.TestCase):
     def test_case_and_space(self):
         self.assertEqual(normalize(" CACHE "), "cache")
 
-    def test_default_is_off(self):
-        self.assertEqual(normalize(None), "off")
+    def test_default_is_cache(self):
+        self.assertEqual(normalize(None), "cache")
 
     def test_unknown_mode_raises(self):
         with self.assertRaises(RevokePolicyError):
