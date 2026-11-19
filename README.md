@@ -19,7 +19,7 @@
 
 **走的是只读路线**：不装根证书、不改信任库、不绕过校验（详见 [SECURITY.md](SECURITY.md)）。
 
-📌 维护者手册：[维护与验证](docs/MAINTAINING.md) · [设计决策](docs/DECISIONS.md) · [已知问题](docs/KNOWN_ISSUES.md)
+📌 [能做什么、不能做什么](docs/CAPABILITIES.md) · [维护与验证](docs/MAINTAINING.md) · [设计决策](docs/DECISIONS.md) · [已知问题](docs/KNOWN_ISSUES.md)
 
 📖 想看"为什么签名会误判"的完整故事：[Windows 提示"签名无效"，可能根本不是签名的问题](docs/article-signature-misdiagnosis.md)
 
@@ -492,7 +492,7 @@ python -m certdiag app.exe --revoke=auto    # 推荐：先探路再决定要不�
 
 ## 结果该怎么读
 
-`valid` 的意思是「**签名这一项**没有发现问题」，不是「文件安全」。
+`valid` 的意思是「**签名这一项**没有发现问题」，不是「文件安全」。完整的适用边界见 [docs/CAPABILITIES.md](docs/CAPABILITIES.md)。
 工具报告的是 Windows API 的结论，无法检测 API 自身被绕过的情形
 （见 [SECURITY.md](SECURITY.md) 的「不能证明什么」）。
 

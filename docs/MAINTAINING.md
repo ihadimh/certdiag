@@ -10,6 +10,11 @@
 | 发布 | Release v1.6.0，资产 `certdiag-portable-1.6.0.zip` |
 | 依赖 | 仅标准库 + Windows 自带 PowerShell |
 
+## 能力边界
+
+改行为前先读 [CAPABILITIES.md](CAPABILITIES.md)：它写了什么能做什么不能做、什么时候准什么时候不准。
+改完如果能力有变化，那份文档也要跟着改。
+
 ## 三分钟验证
 
 改完任何东西，跑这三条：
