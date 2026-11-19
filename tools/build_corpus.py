@@ -67,30 +67,53 @@ def pick(candidates: list[Path], limit: int) -> list[dict]:
 
 
 def generate_edges(out: Path, signed: Path | None) -> list[dict]:
-    """生成边界样本：篡改、截断、0 字节、非 PE、特殊文件名。"""
+    """生成边界样本：篡改、截断、0 字节、非 PE、特殊文件名。
+
+    篡改样本优先复用 samples/tampered.exe（已确认会得到 HashMismatch）；
+    其余样本与它无关，无论复不复用都要生成。
+    """
     made: list[dict] = []
     edge = out / "edge-cases"
     edge.mkdir(parents=True, exist_ok=True)
 
-    if signed and signed.exists():
-        data = signed.read_bytes()
-        tampered = bytearray(data)
-        # 改签名数据区末尾一个字节：内容与摘要不符，但文件仍可解析
-        tampered[0x400] ^= 0xFF if len(tampered) > 0x400 else 0
-        (edge / "tampered.exe").write_bytes(bytes(tampered))
-        made.append({"file": "edge-cases/tampered.exe", "kind": "篡改（改末尾字节）"})
+    data = signed.read_bytes() if signed and signed.exists() else None
 
+    _known = ROOT / "samples" / "tampered.exe"
+    if _known.exists():
+        shutil.copy2(_known, edge / "tampered.exe")
+        made.append({"file": "edge-cases/tampered.exe", "kind": "篡改（复用 samples/tampered.exe）"})
+    elif data:
+        tampered = bytearray(data)
+        try:
+            import struct as _st
+            _pe = _st.unpack_from("<I", tampered, 0x3C)[0]
+            _coff = _pe + 4
+            _n = _st.unpack_from("<H", tampered, _coff + 2)[0]
+            _osz = _st.unpack_from("<H", tampered, _coff + 16)[0]
+            _sec = _coff + 20 + _osz
+            for _i in range(_n):
+                _b = _sec + _i * 40
+                _name = bytes(tampered[_b:_b + 8]).rstrip(b"\0")
+                _rs = _st.unpack_from("<I", tampered, _b + 16)[0]
+                _rp = _st.unpack_from("<I", tampered, _b + 20)[0]
+                if _name == b".text" and _rs > 64:
+                    tampered[_rp + _rs // 2] ^= 0xFF
+                    break
+        except Exception:  # noqa: BLE001
+            pass
+        (edge / "tampered.exe").write_bytes(bytes(tampered))
+        made.append({"file": "edge-cases/tampered.exe", "kind": "篡改（改 .text 段）"})
+
+    if data and len(data) > 8192:
         (edge / "truncated.exe").write_bytes(data[:8192])
         made.append({"file": "edge-cases/truncated.exe", "kind": "截断的 PE（8KB）"})
 
-        (edge / "中文 文件.exe").write_bytes(data[:65536])
-        made.append({"file": "edge-cases/中文 文件.exe", "kind": "中文文件名"})
-
-        (edge / "a b c.exe").write_bytes(data[:65536])
-        made.append({"file": "edge-cases/a b c.exe", "kind": "空格文件名"})
-
-        (edge / "x[1].dll").write_bytes(data[:65536])
-        made.append({"file": "edge-cases/x[1].dll", "kind": "通配符字符文件名"})
+        tail = data[:65536] if len(data) > 65536 else data
+        for name, kind in (("中文 文件.exe", "中文文件名"),
+                           ("a b c.exe", "空格文件名"),
+                           ("x[1].dll", "通配符字符文件名")):
+            (edge / name).write_bytes(tail)
+            made.append({"file": f"edge-cases/{name}", "kind": kind})
 
     (edge / "zero.exe").write_bytes(b"")
     made.append({"file": "edge-cases/zero.exe", "kind": "0 字节"})
@@ -103,7 +126,7 @@ def generate_edges(out: Path, signed: Path | None) -> list[dict]:
 
 
 def strip_signature(src: Path, dst: Path) -> bool:
-    """把 PE 安全目录清零，得到"无签名"样本（结构仍完整）。"""
+    """把 PE 安全目录清零，再改一个字节：得到"无签名且不被目录覆盖"的样本。"""
     import struct
 
     data = bytearray(src.read_bytes())
@@ -114,16 +137,14 @@ def strip_signature(src: Path, dst: Path) -> bool:
         return False
     magic = struct.unpack_from("<H", data, pe + 24)[0]
     dd = pe + 24 + (112 if magic == 0x20B else 96) + 4 * 8
-    struct.pack_into("<II", data, dd, 0, 0)   # 清空 security directory
-    # 再翻转末尾一个字节：System32 的文件都在系统目录库里，
-    # 不改内容的话去掉嵌入签名后仍会被目录签名覆盖（判成 catalog_only_trust）
+    struct.pack_into("<II", data, dd, 0, 0)
     data[-1] ^= 0xFF
     dst.write_bytes(bytes(data))
     return True
 
 
 def make_synthetic(out: Path, base: Path | None) -> list[dict]:
-    """用自签名证书造 untrusted_root 样本；用清空安全目录造 no_signature 样本。"""
+    """自签名（untrusted_root）与去签名（no_signature）样本。"""
     made: list[dict] = []
     if not base or not base.exists():
         return made
@@ -148,7 +169,7 @@ def make_synthetic(out: Path, base: Path | None) -> list[dict]:
 
         subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
                         "-Command", ps], capture_output=True, timeout=120)
-        if selfsigned.exists() and selfsigned.stat().st_size > 0:
+        if selfsigned.exists():
             made.append({"file": "synthetic/selfsigned.exe", "kind": "自签名（根不受信）"})
     except Exception:  # noqa: BLE001
         pass
@@ -205,6 +226,14 @@ def main() -> int:
 
     # 基底优先选"有嵌入式签名"的文件（hresult==0），这样篡改后才会得到 HashMismatch
     signed_sample = None
+    _pre = ROOT / "samples" / "signed_ok.exe"
+    if _pre.exists():
+        try:
+            from certdiag.winverify import verify as _wv0
+            if (_wv0(str(_pre)).get("hresult") or -1) == 0:
+                signed_sample = _pre
+        except Exception:  # noqa: BLE001
+            pass
     for item in chosen:
         try:
             from certdiag.winverify import verify as _wv

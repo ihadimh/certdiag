@@ -65,6 +65,24 @@ def inspect(path: str) -> dict:
                 out["reason"] = "数据目录不完整（文件被截断）"
                 return out
 
+            # 节表边界：截断的文件常常保住头部、丢了节数据
+            nsec = struct.unpack_from("<H", coff, 2)[0] if len(coff) >= 4 else 0
+            sec_base = e_lfanew + 24 + opt_size
+            for i in range(min(nsec, 96)):
+                off = sec_base + i * 40
+                if off + 40 > size:
+                    out["truncated"] = True
+                    out["reason"] = "节表超出文件末尾"
+                    break
+                fh.seek(off + 16)
+                raw_size, raw_ptr = struct.unpack("<II", fh.read(8))
+                if raw_size == 0:
+                    continue
+                if raw_ptr + raw_size > size:
+                    out["truncated"] = True
+                    out["reason"] = f"第 {i + 1} 个节的原始数据超出文件末尾"
+                    break
+
             cert_off, cert_size = struct.unpack_from("<II", opt, dd + 8 * 4)
             if cert_off and cert_size:
                 if cert_off + cert_size > size:

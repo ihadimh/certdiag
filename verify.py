@@ -39,8 +39,10 @@ def run_tests() -> tuple[bool, str]:
     return proc.returncode == 0, "\n".join(tail[-4:])
 
 
-def ensure_samples() -> Path:
+def ensure_samples() -> Path | None:
     d = ROOT / "samples"
+    if not (d / "make_test_samples.py").exists():
+        return None
     tampered = d / "tampered.exe"
     if not tampered.exists():
         subprocess.run([sys.executable, str(d / "make_test_samples.py")],
@@ -203,6 +205,9 @@ def main() -> int:
 
     # 场景 2：篡改样本必须判为无效
     tampered = ensure_samples()
+    if tampered is None:
+        print("    [--] 跳过：便携包未包含 samples/（样本需在完整仓库里生成）")
+        return True
     if tampered.exists():
         results.append(("篡改检测",
                         scenario("篡改样本（必须判无效）", tampered,

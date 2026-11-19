@@ -44,13 +44,27 @@ def find_source() -> Path:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from certdiag.winverify import verify
 
+    # 1) 常见 git 路径
     for c in CANDIDATES:
         p = Path(c)
-        if not p.exists():
-            continue
-        if verify(str(p)).get("hresult") == 0:      # 有嵌入式签名
+        if p.exists() and verify(str(p)).get("hresult") == 0:
             return p
-    raise SystemExit("找不到带嵌入式签名的源文件")
+
+    # 2) 便携包自带的 python.exe（PSF 签名，嵌入式）
+    p = Path(sys.executable)
+    if p.exists() and verify(str(p)).get("hresult") == 0:
+        return p
+
+    # 3) 在 System32 里找第一个有嵌入式签名的 exe（最多 120 个）
+    import glob
+    for c in sorted(glob.glob(r"C:\Windows\System32\*.exe"))[:120]:
+        try:
+            if verify(c).get("hresult") == 0:
+                return Path(c)
+        except Exception:  # noqa: BLE001
+            continue
+
+    raise SystemExit("找不到带嵌入式签名的源文件（可装 Git 后重试）")
 
 
 def pe_section_offset(data: bytes, name: bytes) -> int | None:
