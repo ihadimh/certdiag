@@ -177,3 +177,29 @@ class TestPeInspection(unittest.TestCase):
         self.assertTrue(looks_like_pe_name("a.EXE"))
         self.assertTrue(looks_like_pe_name("b.sys"))
         self.assertFalse(looks_like_pe_name("c.ps1"))
+
+class TestConflictingHresult(unittest.TestCase):
+    """状态说 Valid、WinVerifyTrust 却报错时，不能直接给 valid。"""
+
+    def test_malformed_signature_is_unknown(self):
+        d = diagnose(DiagInput(status="Valid", hresult=0x80096011))
+        self.assertEqual(d.category, "malformed_signature")
+        self.assertEqual(d.verdict, "unknown")
+
+    def test_wrong_usage_is_invalid(self):
+        d = diagnose(DiagInput(status="Valid", hresult=0x800B0110))
+        self.assertEqual(d.category, "wrong_usage")
+        self.assertEqual(d.verdict, "invalid")
+
+    def test_unmapped_code_is_unknown_low_confidence(self):
+        d = diagnose(DiagInput(status="Valid", hresult=0xDEADBEEF))
+        self.assertEqual(d.category, "unexplained_hresult")
+        self.assertEqual(d.verdict, "unknown")
+        self.assertEqual(d.confidence, "low")
+
+    def test_known_codes_still_work(self):
+        # 0x800B0100 是目录签名场景的正常返回，不能被降级
+        d = diagnose(DiagInput(status="Valid", hresult=0x800B0100,
+                               catalog={"found": True, "signature_status": "Valid",
+                                        "path": r"C:\x.cat"}))
+        self.assertEqual(d.category, "catalog_only_trust")

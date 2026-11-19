@@ -27,6 +27,9 @@ HRESULT_MAP: dict[int, tuple[str, str]] = {
     0x80092013: ("CRYPT_E_REVOCATION_OFFLINE", "吊销状态无法获取（CRL/OCSP 离线或不可达）"),
     0x800B010E: ("CERT_E_REVOCATION_FAILURE", "吊销检查失败"),
     0x800B0111: ("TRUST_E_EXPLICIT_DISTRUST", "该证书被显式标记为不信任"),
+    0x80096011: ("TRUST_E_MALFORMED_SIGNATURE", "签名结构不被 WinVerifyTrust 接受"),
+    0x800B0110: ("CERT_E_WRONG_USAGE", "证书用途不符（例如链上根只带时间戳 EKU）"),
+    0x800F0242: ("SPAPI_E_AUTHENTICODE_TRUST_NOT_ESTABLISHED", "安装驱动时未能建立发布者信任"),
     0x80096010: ("TRUST_E_BAD_DIGEST", "文件内容与签名不匹配（被修改或损坏）"),
     0x800B0004: ("TRUST_E_SUBJECT_NOT_TRUSTED", "签名主体不被信任"),
     0x800B0003: ("TRUST_E_SUBJECT_FORM_UNKNOWN", "签名主体格式未知"),
@@ -175,6 +178,37 @@ def diagnose(inp: DiagInput) -> Diagnosis:
     if inp.hresult not in (None, 0) and inp.hresult not in STRONG_CODES:
         nm = HRESULT_MAP.get(inp.hresult, ("UNKNOWN", ""))[0]
         evidence.append(f"WinVerifyTrust：0x{inp.hresult:08X} {nm}")
+
+    # 0.2) 系统说 Valid，但 WinVerifyTrust 报了别的码 → 不能直接说"有效"
+    #      背景：有公开案例（Elastic Security Labs）显示合法签名可能被报
+    #      TRUST_E_MALFORMED_SIGNATURE；也有交叉根只带时间戳 EKU 导致用途不符。
+    #      这类情况工具无法解释清楚，必须显式降级，而不是当成正常。
+    if st == "Valid" and inp.hresult not in (None, 0, 0x800B0100):
+        hr = inp.hresult
+        hname, hdesc = HRESULT_MAP.get(hr, ("UNKNOWN", "本工具未收录该错误码"))
+        if hr == 0x800B0110:
+            return Diagnosis(
+                category="wrong_usage", verdict=VERDICT_INVALID,
+                cause="证书用途不符：这张证书不能用于代码签名（常见于交叉根只带时间戳 EKU）",
+                confidence="medium",
+                advice=["确认文件是否由该证书正常签发",
+                        "核对链上根证书的 EKU 是否包含代码签名"],
+                evidence=evidence + [f"WinVerifyTrust：0x{hr:08X} {hname}"])
+        if hr == 0x80096011:
+            return Diagnosis(
+                category="malformed_signature", verdict=VERDICT_UNKNOWN,
+                cause="签名结构不被系统接受（有公开案例：合法签名也会被报这个码，原因未公开）",
+                confidence="medium",
+                advice=["用 signtool verify /pa /v 复核同一文件",
+                        "不要仅凭这个码判定文件被篡改"],
+                evidence=evidence + [f"WinVerifyTrust：0x{hr:08X} {hname}"])
+        return Diagnosis(
+            category="unexplained_hresult", verdict=VERDICT_UNKNOWN,
+            cause=f"系统状态是 Valid，但 WinVerifyTrust 返回 0x{hr:08X}（{hname}：{hdesc}），本工具无法解释这组矛盾",
+            confidence="low",
+            advice=["以 signtool verify /pa /v 的结果为准",
+                    "把这个文件与错误码反馈给维护者，便于补充映射"],
+            evidence=evidence + [f"WinVerifyTrust：0x{hr:08X} {hname}"])
 
     # 0.5) 系统判定有效，但文件自身无嵌入式签名 → 信任来自目录签名
     if st == "Valid" and inp.hresult == 0x800B0100 and (inp.catalog or {}).get("found"):

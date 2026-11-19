@@ -71,6 +71,27 @@
       "action": "用 sfc /scannow 修复系统文件；确认 .cat 来源"
     },
     {
+      "id": "wrong_usage",
+      "verdict": "invalid",
+      "title": "证书用途不符",
+      "when": "WinVerifyTrust 返回 CERT_E_WRONG_USAGE（常见于交叉根只带时间戳 EKU）",
+      "action": "核对链上根的 EKU 是否包含代码签名；换用正确的签发链"
+    },
+    {
+      "id": "malformed_signature",
+      "verdict": "unknown",
+      "title": "签名结构不被系统接受",
+      "when": "WinVerifyTrust 返回 TRUST_E_MALFORMED_SIGNATURE，但 PowerShell 状态为 Valid",
+      "action": "用 signtool verify /pa /v 复核；有公开案例显示合法签名也会被报此码，不要据此判定被篡改"
+    },
+    {
+      "id": "unexplained_hresult",
+      "verdict": "unknown",
+      "title": "系统状态与 WinVerifyTrust 矛盾",
+      "when": "状态 Valid 但 WinVerifyTrust 返回未收录/未解释的错误码",
+      "action": "以 signtool 复核为准；把文件与错误码反馈给维护者补充映射"
+    },
+    {
       "id": "not_pe_file",
       "verdict": "unknown",
       "title": "内容不是有效的 PE 文件",

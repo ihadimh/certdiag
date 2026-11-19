@@ -86,6 +86,9 @@ CODES: dict[int, tuple[str, str]] = {
     0x80092013: ("CRYPT_E_REVOCATION_OFFLINE", "吊销状态无法获取（离线或不可达）"),
     0x800B010E: ("CERT_E_REVOCATION_FAILURE", "吊销检查失败"),
     0x800B0111: ("TRUST_E_EXPLICIT_DISTRUST", "该证书被显式标记为不信任"),
+    0x80096011: ("TRUST_E_MALFORMED_SIGNATURE", "签名结构不被 WinVerifyTrust 接受"),
+    0x800B0110: ("CERT_E_WRONG_USAGE", "证书用途不符（例如链上根只带时间戳 EKU）"),
+    0x800F0242: ("SPAPI_E_AUTHENTICODE_TRUST_NOT_ESTABLISHED", "安装驱动时未能建立发布者信任"),
     0x80096010: ("TRUST_E_BAD_DIGEST", "文件内容与签名不匹配"),
     0x800B010B: ("TRUST_E_FAIL", "通用验证失败"),
 }

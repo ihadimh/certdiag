@@ -58,6 +58,9 @@
 | 企业代理 / PAC | 只支持显式 HTTP/HTTPS 代理，PAC 不求值 | 中 |
 | 非 Windows 11 | 只在 22621 验证过 | 中 |
 | 慢网络 + `--revoke=online` | WinVerifyTrust 无超时，可能卡住 | 中 |
+| 驱动安装类失败（`0x800F0242` / `0xE0000243`） | 这类错误发生在安装上下文的 catalog 成员校验，工具只验证 `.cat` 自身签名，答不了"为什么这个发布者没被信任" | 高（运维场景） |
+| 合法签名被 API 误报 `TRUST_E_MALFORMED_SIGNATURE` | 现在归为 `malformed_signature` / unknown，不再报 valid，但工具无法判断真伪 | 中 |
+| 交叉根只带时间戳 EKU | 现在归为 `wrong_usage` / invalid，但不会指出是哪一级证书的 EKU | 中 |
 
 完整清单见 [KNOWN_ISSUES.md](KNOWN_ISSUES.md)。
 
