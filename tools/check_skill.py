@@ -79,7 +79,11 @@ def check_one(path: Path) -> tuple[bool, str, dict]:
     if not md.exists():
         return False, f"找不到 {md}", {}
 
-    text = md.read_text(encoding="utf-8")
+    raw = md.read_bytes()
+    if raw.startswith(b"\xef\xbb\xbf"):
+        # BOM 会让 frontmatter 的 "---" 前面多一个字符，解析直接失败
+        return False, "文件带 UTF-8 BOM，frontmatter 会解析失败（另存为「UTF-8 无 BOM」）", {}
+    text = raw.decode("utf-8", "replace")
     meta, body = parse_frontmatter(text)
 
     problems = []

@@ -114,9 +114,10 @@ python -m certdiag "D:\release" --fail-on unknown     # 退出码 0/1/2
 # 1. 系统怎么看（含目录签名回退）
 Get-AuthenticodeSignature .\app.exe | Format-List Status, StatusMessage, SignerCertificate
 
-# 2. 精确错误码（只看嵌入式签名）
-#    0x800B0100=无签名  0x80092013=吊销离线  0x80096010=哈希不符
-certutil -verify -urlfetch .\app.exe
+# 2. 链与吊销抓取日志（certutil 只接受证书文件，先导出签名者证书）
+$c = (Get-AuthenticodeSignature .\app.exe).SignerCertificate
+[IO.File]::WriteAllBytes("$env:TEMP\signer.cer", $c.Export('Cert'))
+certutil -verify -urlfetch "$env:TEMP\signer.cer"
 
 # 3. 是否有目录签名覆盖
 sigcheck -a .\app.exe     # Sysinternals，看 Catalog 字段

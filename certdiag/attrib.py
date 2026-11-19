@@ -452,7 +452,7 @@ def diagnose(inp: DiagInput) -> Diagnosis:
         confidence="low",
         advice=[
             "用 signtool verify /pa /v 获取详细链信息",
-            "用 certutil -verify -urlfetch -v 查看逐 URL 抓取日志",
+            "想看逐 URL 抓取日志：先导出签名者证书，再 certutil -verify -urlfetch <证书.cer>",
             "把报告附到工单，附上系统版本与网络环境",
         ],
         evidence=evidence)
