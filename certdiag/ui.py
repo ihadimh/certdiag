@@ -459,6 +459,12 @@ class _Handler(BaseHTTPRequestHandler):
         host = (self.headers.get("Host") or "").split(":")[0].strip().lower()
         if host not in ("127.0.0.1", "localhost", "[::1]"):
             return False
+        # Sec-Fetch-Site 是浏览器强制发送的，跨站请求为 cross-site / same-site。
+        # 它比 Origin 更难伪造（脚本无法设置这个头）。
+        site = (self.headers.get("Sec-Fetch-Site") or "").strip().lower()
+        if site and site not in ("same-origin", "none"):
+            return False
+
         origin = (self.headers.get("Origin") or "").strip()
         if origin:
             # 不能用 startswith 比较：http://localhost.attacker.example 也以

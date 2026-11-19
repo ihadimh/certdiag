@@ -59,6 +59,11 @@ OCSP 只接受 POST，GET/HEAD 失败会被判为 `inconclusive`，`auto` 可能
 `--fail-on` 默认是 `invalid`，`unknown` 不会让退出码变 1。排障场景合理，门禁场景危险。
 已加运行时提示，但**默认值仍是宽容的**——用作门禁请显式 `--fail-on unknown --strict`。
 
+### 14. 旧式 PKCS#9 countersignature 未验证
+部分老文件（如 DirectX 的 d3dx9_*.dll）用的是 `1.2.840.113549.1.9.6` countersignature，
+不是 RFC3161 令牌。工具只记录"存在旧式 countersignature"，不验它的签名，
+因此这类文件会显示 `expired_with_timestamp`（valid / medium）而不是"验签通过"。
+
 ## P3
 
 ### 8. 测试覆盖仍偏重归因函数

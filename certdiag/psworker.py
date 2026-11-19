@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import json
+import queue
 import os
 import subprocess
 import sys
@@ -38,9 +39,12 @@ def hidden_kwargs() -> dict:
         return {"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)}
     return {}
 
-WORKER_PS = r"""
+from .ps_text import TS_FUNCTION
+
+WORKER_PS_TEMPLATE = r"""
 $ErrorActionPreference = 'Continue'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+Add-Type -AssemblyName System.Security -ErrorAction SilentlyContinue
 
 function Get-Sha256Safe {
   # Get-FileHash 在精简版 PowerShell 或受限模块路径下可能不存在。
@@ -153,12 +157,20 @@ function Get-SigRecord {
 }
 
 while ($true) {
-  $line = [Console]::In.ReadLine()
+  __TS_FUNCTION__
+
+$line = [Console]::In.ReadLine()
   if ($null -eq $line) { break }
   if ($line.Trim() -eq '') { continue }
   $out = $null
   try {
     $job = $line | ConvertFrom-Json
+    if ($job.op -eq 'timestamp') {
+      try { $r = Get-TsRecord -Path $job.path }
+      catch { $r = [ordered]@{ path = $job.path; error = $_.Exception.Message } }
+      $r | ConvertTo-Json -Compress
+      continue
+    }
     $rev = if ($job.revoke) { $job.revoke } else { 'NoCheck' }
     $off = if ($job.offline) { $true } else { $false }
     $out = Get-SigRecord -Path $job.path -Revoke $rev -Offline $off
@@ -171,6 +183,8 @@ while ($true) {
   [Console]::Out.Flush()
 }
 """
+
+WORKER_PS = WORKER_PS_TEMPLATE.replace("__TS_FUNCTION__", TS_FUNCTION)
 
 
 def _find_powershell() -> str:
@@ -217,6 +231,13 @@ class PowerShellWorker:
         except Exception:  # noqa: BLE001
             self._proc.kill()
         finally:
+            # 管道必须显式关闭，否则解释器退出时会报 unclosed file / subprocess still running
+            for stream in (self._proc.stdin, self._proc.stdout, self._proc.stderr):
+                try:
+                    if stream and not stream.closed:
+                        stream.close()
+                except Exception:  # noqa: BLE001
+                    pass
             self._proc = None
             script = getattr(self, "_script", None)
             if script:
@@ -249,6 +270,48 @@ class PowerShellWorker:
                         pass
                     self._start()
         return {"path": path, "error": "采集失败"}
+
+    def timestamp(self, path: str | Path, timeout: float = 30.0) -> dict:
+        """复用同一个 PowerShell 进程做时间戳解析。
+
+        独立脚本每次要起进程 + 加载 System.Security（约 230 ms/文件）；
+        常驻进程里只加载一次，单文件降到几毫秒。
+        """
+        path = str(Path(path))
+        with self._lock:
+            for attempt in (1, 2):
+                try:
+                    return self._request_op({"op": "timestamp", "path": path}, timeout)
+                except Exception:  # noqa: BLE001
+                    if attempt == 2:
+                        raise
+                    try:
+                        self.close()
+                    except Exception:  # noqa: BLE001
+                        pass
+                    self._start()
+        raise RuntimeError("时间戳解析失败")
+
+    def _request_op(self, payload: dict, timeout: float) -> dict:
+        assert self._proc and self._proc.stdin and self._proc.stdout
+        self._proc.stdin.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        self._proc.stdin.flush()
+        q: queue.Queue = queue.Queue()
+
+        def read():
+            q.put(self._proc.stdout.readline())
+
+        th = threading.Thread(target=read, daemon=True)
+        th.start()
+        try:
+            line = q.get(timeout=timeout)
+        except queue.Empty:
+            raise TimeoutError("采集超时") from None
+        if not line:
+            raise RuntimeError("worker 无输出")
+        # 逻辑错误（文件没有嵌入签名等）是有效结论，原样返回；
+        # 只有传输层失败（超时/进程死）才让调用方兜底
+        return json.loads(line)
 
     def _request(self, path: str, timeout: float, revoke: str = "NoCheck",
                  offline: bool = False) -> dict:

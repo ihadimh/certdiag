@@ -224,3 +224,15 @@ def close() -> None:
                 _worker.close()
             finally:
                 _worker = None
+
+
+def timestamp_via_worker(path: str, timeout: float = 30.0) -> dict:
+    """复用常驻 worker 做时间戳解析；没有 worker 时抛异常，由调用方降级。"""
+    global _worker
+    if not _use_worker:
+        raise RuntimeError("worker 未启用")
+    with _worker_lock:
+        if _worker is None:
+            _worker = PowerShellWorker()
+        w = _worker
+    return w.timestamp(path, timeout=timeout)

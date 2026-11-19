@@ -355,8 +355,12 @@ def diagnose(inp: DiagInput) -> Diagnosis:
                     "确认系统时间正确——时间偏差会导致吊销查询失败"],
             evidence=evidence)
 
-    # 4) 链不完整 / 根不受信
-    if "UntrustedRoot" in flags:
+    # 系统的权威结论：Status=Valid 且 WinVerifyTrust=S_OK（或目录签名的 NOSIGNATURE）
+    # 我们自己的链构建可能因为没下载 AIA 而失败，这不能反推文件无效。
+    os_says_valid = (st == "Valid" and inp.hresult in (0, 0x800B0100))
+
+    # 4) 链不完整 / 根不受信（系统说有效时只作为证据，不覆盖结论）
+    if "UntrustedRoot" in flags and not os_says_valid:
         return Diagnosis(
             category="untrusted_root", verdict=VERDICT_INVALID,
             cause="根证书不受信任：本机信任库中没有该根，或根被显式移除",
@@ -368,7 +372,7 @@ def diagnose(inp: DiagInput) -> Diagnosis:
             ],
             evidence=evidence)
 
-    if "PartialChain" in flags:
+    if "PartialChain" in flags and not os_says_valid:
         return Diagnosis(
             category="partial_chain", verdict=VERDICT_INVALID,
             cause="证书链不完整：缺少中间证书，链无法连到根",
@@ -412,6 +416,16 @@ def diagnose(inp: DiagInput) -> Diagnosis:
                 confidence="medium",
                 advice=["时间戳令牌未做校验，结论为推测",
                         "用 --timestamp 强制校验，或 signtool verify /pa /t"],
+                evidence=evidence)
+        if os_says_valid:
+            # 系统认为有效（通常因为时间戳），我们没能验证令牌 → 只降置信度，不判无效
+            return Diagnosis(
+                category="expired_with_timestamp",
+                verdict=VERDICT_VALID,
+                cause="签名者证书已过期，但系统判定有效（通常依赖时间戳）；本工具未能验证该时间戳",
+                confidence="low",
+                advice=["用 signtool verify /pa /t 核实时间戳",
+                        "不要仅凭本工具的这次结果判定文件失效"],
                 evidence=evidence)
         return Diagnosis(
             category="expired", verdict=VERDICT_INVALID,

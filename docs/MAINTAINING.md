@@ -33,6 +33,14 @@ python -m certdiag "C:\Windows\System32\cmd.exe" --no-probe
 | verify.py | 系统组件 / 篡改样本 / 原始副本 / 单元测试 四项 `[OK]` |
 | cmd.exe | `catalog_only_trust`，结论句含「由有效的目录签名（catalog）覆盖」 |
 
+再跑一次大规模批量（验证性能与稳定性，约 30 秒）：
+
+```powershell
+python -m certdiag "C:\Windows\System32" --no-probe -q
+```
+
+600 个文件应在 30 秒内完成，且不应出现 invalid（系统判定优先）。
+
 再跑一次真实路径审计（会真的起 PowerShell、发网络请求，约 30 秒）：
 
 ```powershell

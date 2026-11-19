@@ -28,85 +28,7 @@ from pathlib import Path
 
 from .psworker import hidden_kwargs
 
-PS_SCRIPT = r"""
-param([string]$Path)
-$ErrorActionPreference = 'Stop'
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-Add-Type -AssemblyName System.Security -ErrorAction SilentlyContinue
-
-$out = [ordered]@{
-    path = $Path; has_signature = $false; signature_ok = $false
-    has_token = $false; token_ok = $false; token_oid = $null
-    has_legacy_countersignature = $false; has_nested_signature = $false
-    tsa_subject = $null; tsa_not_before = $null; tsa_not_after = $null
-    error = $null
-}
-
-try {
-    $b = [System.IO.File]::ReadAllBytes($Path)
-    if ($b.Length -lt 0x40 -or $b[0] -ne 0x4D -or $b[1] -ne 0x5A) { throw "不是 PE 文件" }
-    $pe = [System.BitConverter]::ToInt32($b, 0x3C)
-    $magic = [System.BitConverter]::ToUInt16($b, $pe + 24)
-    if ($magic -eq 0x20B) { $dd = $pe + 24 + 112 + 4 * 8 }
-    elseif ($magic -eq 0x10B) { $dd = $pe + 24 + 96 + 4 * 8 }
-    else { throw "未知的 PE 格式" }
-
-    $certOff = [System.BitConverter]::ToUInt32($b, $dd)
-    $certSize = [System.BitConverter]::ToUInt32($b, $dd + 4)
-    if ($certOff -eq 0 -or $certSize -eq 0) { throw "没有嵌入式签名" }
-
-    # 不可信输入，所有偏移都要对着文件长度核对一遍，避免越界读取
-    if ($certOff + 8 -gt $b.Length) { throw "签名目录偏移越界" }
-    if ($certSize -lt 8 -or $certOff + $certSize -gt $b.Length) { throw "签名目录长度越界" }
-
-    $len = [System.BitConverter]::ToUInt32($b, $certOff)
-    if ($len -lt 8) { throw "WIN_CERTIFICATE 长度非法" }
-    if ($len -gt $certSize) { throw "WIN_CERTIFICATE 长度超过签名目录声明的大小" }
-    if ($len -gt $b.Length) { throw "WIN_CERTIFICATE 长度超过文件大小" }
-    $out.has_signature = $true
-
-    $p7 = New-Object byte[] ($len - 8)
-    [Array]::Copy($b, $certOff + 8, $p7, 0, $len - 8)
-
-    $cms = New-Object System.Security.Cryptography.Pkcs.SignedCms
-    $cms.Decode($p7)
-    try { $cms.CheckSignature($true); $out.signature_ok = $true }
-    catch { $out.error = "签名校验失败：$($_.Exception.Message)" }
-
-    # OID 说明（别搞混）：
-    #   1.3.6.1.4.1.311.3.3.1   RFC3161 时间戳令牌（本函数处理的对象）
-    #   1.2.840.113549.1.9.6   传统 PKCS#9 countersignature（另一种时间戳机制）
-    #   1.3.6.1.4.1.311.2.4.1  嵌套签名 szOID_NESTED_SIGNATURE —— 不是时间戳！
-    foreach ($ua in $cms.SignerInfos[0].UnsignedAttributes) {
-        if ($ua.Oid.Value -eq '1.2.840.113549.1.9.6') {
-            $out.has_legacy_countersignature = $true
-            continue
-        }
-        if ($ua.Oid.Value -eq '1.3.6.1.4.1.311.2.4.1') {
-            $out.has_nested_signature = $true
-            continue
-        }
-        if ($ua.Oid.Value -eq '1.3.6.1.4.1.311.3.3.1') {
-            $out.has_token = $true
-            $out.token_oid = $ua.Oid.Value
-            $ts = New-Object System.Security.Cryptography.Pkcs.SignedCms
-            $ts.Decode($ua.Values[0].RawData)
-            try { $ts.CheckSignature($true); $out.token_ok = $true }
-            catch { $out.error = "时间戳令牌校验失败：$($_.Exception.Message)" }
-            $tsa = $ts.SignerInfos[0].Certificate
-            if ($tsa) {
-                $out.tsa_subject = $tsa.Subject
-                $out.tsa_not_before = $tsa.NotBefore.ToString('yyyy-MM-ddTHH:mm:ss')
-                $out.tsa_not_after = $tsa.NotAfter.ToString('yyyy-MM-ddTHH:mm:ss')
-            }
-            break
-        }
-    }
-}
-catch { $out.error = $_.Exception.Message }
-
-$out | ConvertTo-Json -Compress
-"""
+from .ps_text import TS_SCRIPT as PS_SCRIPT  # 唯一来源：ps_text.py
 
 
 class TimestampResult(dict):
@@ -148,6 +70,17 @@ def verify(path: str | os.PathLike, timeout: float = 30.0) -> TimestampResult:
     if not os.path.isfile(p):
         result["error"] = "文件不存在"
         return result
+
+    # 优先复用常驻 worker：省掉每次起进程 + 加载程序集（约 230 ms/文件）
+    try:
+        from .collect import timestamp_via_worker
+
+        data = timestamp_via_worker(p, timeout=timeout)
+        if isinstance(data, dict):
+            result.update({k: v for k, v in data.items() if k != "path"})
+            return result
+    except Exception:  # noqa: BLE001
+        pass  # 没有 worker 或失败 → 走下面的 一次性脚本
 
     try:
         ps = _powershell()

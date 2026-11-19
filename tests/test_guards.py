@@ -203,3 +203,31 @@ class TestConflictingHresult(unittest.TestCase):
                                catalog={"found": True, "signature_status": "Valid",
                                         "path": r"C:\x.cat"}))
         self.assertEqual(d.category, "catalog_only_trust")
+
+
+class TestFetchMetadata(unittest.TestCase):
+    """Sec-Fetch-Site 由浏览器强制发送，跨站请求不应被接受。"""
+
+    def test_cross_site_rejected(self):
+        import importlib
+        import certdiag.ui as ui
+
+        # 直接验证判定逻辑：构造一个最小的假 handler
+        class H:
+            headers = {"Host": "127.0.0.1:8765", "Sec-Fetch-Site": "cross-site"}
+            server = type("S", (), {"server_address": ("127.0.0.1", 8765)})()
+
+            _trusted_caller = ui._Handler._trusted_caller
+
+        self.assertFalse(H()._trusted_caller())
+
+    def test_same_origin_accepted(self):
+        import certdiag.ui as ui
+
+        class H:
+            headers = {"Host": "127.0.0.1:8765", "Sec-Fetch-Site": "same-origin"}
+            server = type("S", (), {"server_address": ("127.0.0.1", 8765)})()
+
+            _trusted_caller = ui._Handler._trusted_caller
+
+        self.assertTrue(H()._trusted_caller())
