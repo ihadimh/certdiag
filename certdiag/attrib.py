@@ -190,6 +190,17 @@ def diagnose(inp: DiagInput) -> Diagnosis:
     if st == "Valid" and inp.hresult not in (None, 0, 0x800B0100):
         hr = inp.hresult
         hname, hdesc = HRESULT_MAP.get(hr, ("UNKNOWN", "本工具未收录该错误码"))
+        if hr in (0x800B0109, 0x800B0004):
+            # 自签名/内部证书最常见：系统状态可能显示 Valid（因为签名结构没问题），
+            # 但 WinVerifyTrust 明确说根不受信或主体不受信 —— 这是确定的结论
+            return Diagnosis(
+                category="untrusted_root", verdict=VERDICT_INVALID,
+                cause="签名者的根证书不在本机信任库中（自签名或内部 CA 的常见情况）",
+                confidence="high",
+                advice=["确认该文件是否来自自签名/内部签发的程序",
+                        "企业内部 CA 需要把根证书部署到「受信任的根证书颁发机构」",
+                        "不要为了通过校验而安装来源不明的根证书"],
+                evidence=evidence)
         if hr == 0x800B0110:
             return Diagnosis(
                 category="wrong_usage", verdict=VERDICT_INVALID,

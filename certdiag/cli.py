@@ -145,7 +145,7 @@ def diagnose_one(path: Path, offline: bool, no_probe: bool, timeout: float,
     # 证据层：把信号摊开、找冲突、列出未检查项，并据此重算置信度
     signals = evidence_layer.collect_signals(
         collected, catalog=catalog, timestamp=ts, revocation=revocation)
-    conflicts = evidence_layer.find_conflicts(signals, collected)
+    conflicts = evidence_layer.find_conflicts(signals, collected, diag.category)
     missing = evidence_layer.not_checked(collected, timestamp=ts,
                                        revocation=revocation, catalog=catalog)
     confidence, basis = evidence_layer.adjust_confidence(diag.confidence, conflicts, missing)

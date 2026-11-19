@@ -113,12 +113,25 @@ def collect_signals(collected: dict, *, catalog: dict | None = None,
     return out
 
 
-def find_conflicts(signals: list[Signal], collected: dict) -> list[dict]:
-    """列出互相矛盾的信号对，不做取舍。"""
+# 这些分类本身就是"系统状态与 WinVerifyTrust 不一致"的已知解释，不算冲突
+EXPLAINED_CATEGORIES = {"untrusted_root", "wrong_usage", "revoked",
+                        "partial_chain", "untrusted_testroot"}
+
+
+def find_conflicts(signals: list[Signal], collected: dict,
+                   category: str | None = None) -> list[dict]:
+    """列出互相矛盾的信号对，不做取舍。
+
+    如果已有分类能解释这个矛盾（如"根证书不受信"），就不算冲突——
+    冲突留给"我们也不知道为什么两边不一样"的情况。
+    """
     conflicts: list[dict] = []
     status = collected.get("status") or ""
     hr = collected.get("hresult")
     pe = collected.get("pe") or {}
+
+    if category in EXPLAINED_CATEGORIES:
+        return conflicts
 
     if status == "Valid" and hr is not None and hr not in (0, _NO_SIGNATURE):
         conflicts.append({
