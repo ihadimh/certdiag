@@ -64,7 +64,7 @@ function Get-SigRecord {
   param([string]$Path, [string]$Revoke = 'NoCheck', [bool]$Offline = $false)
 
   $rec = [ordered]@{
-    path = $null; exists = $false; size = 0; sha256 = $null; error_kind = $null
+    path = $Path; exists = $false; size = 0; sha256 = $null; error_kind = $null
     status = $null; status_message = $null
     signer = $null; signer_expired = $false; timestamper = $null
     chain = $null; crl_ocsp_urls = @(); error = $null
@@ -176,7 +176,7 @@ $line = [Console]::In.ReadLine()
     $out = Get-SigRecord -Path $job.path -Revoke $rev -Offline $off
   }
   catch {
-    $out = [ordered]@{ path = $null; error = $_.Exception.Message }
+    $out = [ordered]@{ path = $job.path; error = $_.Exception.Message; error_kind = 'internal' }
   }
   $json = $out | ConvertTo-Json -Depth 10 -Compress
   [Console]::Out.WriteLine($json)
@@ -294,7 +294,7 @@ class PowerShellWorker:
 
     def _request_op(self, payload: dict, timeout: float) -> dict:
         assert self._proc and self._proc.stdin and self._proc.stdout
-        self._proc.stdin.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        self._proc.stdin.write(json.dumps(payload, ensure_ascii=True) + "\n")
         self._proc.stdin.flush()
         q: queue.Queue = queue.Queue()
 
@@ -316,8 +316,11 @@ class PowerShellWorker:
     def _request(self, path: str, timeout: float, revoke: str = "NoCheck",
                  offline: bool = False) -> dict:
         assert self._proc and self._proc.stdin and self._proc.stdout
+        # ensure_ascii=True：把中文转成 \uXXXX 再传。
+        # worker 的 stdin 按控制台代码页解码，直接写 UTF-8 中文会变成乱码，
+        # 表现为"文件不存在"（实测：中文文件名必现）。
         payload = json.dumps({"path": path, "revoke": revoke, "offline": offline},
-                                ensure_ascii=False)
+                                ensure_ascii=True)
         self._proc.stdin.write(payload + "\n")
         self._proc.stdin.flush()
 

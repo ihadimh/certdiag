@@ -110,3 +110,28 @@ class TestSignalsSummary(unittest.TestCase):
         self.assertFalse(s2["conflict"])
         s3 = _signals({"status": "Valid", "hresult": 0x800B0100})
         self.assertFalse(s3["conflict"], "目录签名场景的正常返回不算冲突")
+
+
+@unittest.skipUnless(WINDOWS, "仅 Windows")
+class TestNonAsciiPath(unittest.TestCase):
+    """中文/空格路径曾经被 worker 报成"文件不存在"（stdin 编码问题）。"""
+
+    def test_chinese_and_space_path_via_worker(self):
+        import shutil
+        import tempfile
+        from pathlib import Path as _P
+
+        from certdiag.collect import PowerShellWorker
+
+        tmp = _P(tempfile.mkdtemp()) / "中文 目录"
+        tmp.mkdir()
+        target = tmp / "中文 文件.exe"
+        shutil.copy2(CMD, target)
+        w = PowerShellWorker()
+        try:
+            r = w.collect(str(target), 30, "NoCheck", False)
+            self.assertEqual(r.get("path"), str(target))
+            self.assertIsNotNone(r.get("status"), f"采集失败：{r.get('error')}")
+        finally:
+            w.close()
+            shutil.rmtree(tmp.parent, ignore_errors=True)

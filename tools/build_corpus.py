@@ -245,6 +245,18 @@ def main() -> int:
                 "kind": extra["kind"],
             })
 
+    # 兜底：任何还没有预期分类的条目（边界/合成样本），补跑一次诊断填上
+    for item in manifest:
+        if item.get("expected_category"):
+            continue
+        try:
+            rep = diagnose_one(out / item["file"], offline=True, no_probe=True, timeout=5.0)
+            d = rep.get("diagnosis") or {}
+            item["expected_category"] = d.get("category")
+            item["expected_verdict"] = d.get("verdict")
+        except Exception:  # noqa: BLE001
+            pass
+
     (out / "manifest.json").write_text(
         json.dumps({"generated_by": "tools/build_corpus.py", "count": len(manifest),
                     "items": manifest}, ensure_ascii=False, indent=2),
