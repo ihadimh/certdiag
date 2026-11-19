@@ -19,7 +19,7 @@
 
 **走的是只读路线**：不装根证书、不改信任库、不绕过校验（详见 [SECURITY.md](SECURITY.md)）。
 
-📌 给协作者/后续会话看的：[当前状态](docs/STATE.md) · [设计决策](docs/DECISIONS.md) · [已知未修](docs/KNOWN_ISSUES.md)
+📌 维护者手册：[维护与验证](docs/MAINTAINING.md) · [设计决策](docs/DECISIONS.md) · [已知问题](docs/KNOWN_ISSUES.md)
 
 📖 想看"为什么签名会误判"的完整故事：[Windows 提示"签名无效"，可能根本不是签名的问题](docs/article-signature-misdiagnosis.md)
 
