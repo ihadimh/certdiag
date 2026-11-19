@@ -84,6 +84,12 @@ def check_one(path: Path) -> tuple[bool, str, dict]:
         # BOM 会让 frontmatter 的 "---" 前面多一个字符，解析直接失败
         return False, "文件带 UTF-8 BOM，frontmatter 会解析失败（另存为「UTF-8 无 BOM」）", {}
     text = raw.decode("utf-8", "replace")
+    # frontmatter 里的 ": " 会被当成嵌套映射，整份 frontmatter 解析失败、技能被静默丢弃
+    for ln in text.splitlines()[1:]:
+        if ln.startswith("---"):
+            break
+        if ": " in ln.split(":", 1)[1] if ":" in ln else False:
+            return False, f"frontmatter 的值里含「: 」（YAML 会当成嵌套映射）：{ln[:60]}", {}
     meta, body = parse_frontmatter(text)
 
     problems = []
