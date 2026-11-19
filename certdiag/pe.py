@@ -26,7 +26,8 @@ def looks_like_pe_name(path: str) -> bool:
 
 def inspect(path: str) -> dict:
     """返回 {is_pe, truncated, reason}；读不了也不抛异常。"""
-    out = {"is_pe": False, "truncated": False, "reason": ""}
+    out = {"is_pe": False, "truncated": False, "reason": "",
+           "cert_end": 0, "trailing_after_signature": 0}
     try:
         size = __import__("os").path.getsize(path)
         with open(path, "rb") as fh:
@@ -69,6 +70,11 @@ def inspect(path: str) -> dict:
                 if cert_off + cert_size > size:
                     out["truncated"] = True
                     out["reason"] = "证书表超出文件末尾（文件被截断）"
+                else:
+                    # 证书表通常位于文件末尾。它之后还有数据，可能是合法 overlay，
+                    # 也可能是"签名后追加内容"（CVE-2013-3900 那一类），值得提示。
+                    out["cert_end"] = cert_off + cert_size
+                    out["trailing_after_signature"] = max(0, size - (cert_off + cert_size))
     except OSError as e:
         out["reason"] = f"无法读取：{e}"
     except struct.error as e:

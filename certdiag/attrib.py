@@ -417,13 +417,19 @@ def diagnose(inp: DiagInput) -> Diagnosis:
                 evidence=evidence)
 
         # 检查过吊销，且通过
+        trailing = int((inp.pe or {}).get("trailing_after_signature") or 0)
+        trailing_note = ([] if trailing <= 0 else
+                         [f"签名证书表之后还有 {trailing} 字节数据（可能是 overlay，也可能是追加内容）"])
+
         if rev.get("checked"):
             return Diagnosis(
                 category="valid_revocation_checked_ok", verdict=VERDICT_VALID,
                 cause="签名、证书链与吊销状态均已检查通过",
-                confidence="high",
-                advice=["无需处理"],
-                evidence=evidence + [f"吊销检查：{revoke_label(rev)}"])
+                confidence="medium" if trailing > 0 else "high",
+                advice=(["签名之后存在额外数据，建议与实际发布者的哈希核对",
+                         "Windows 对追加数据的处理取决于 EnableCertPaddingCheck 设置"]
+                        if trailing > 0 else ["无需处理"]),
+                evidence=evidence + [f"吊销检查：{revoke_label(rev)}"] + trailing_note)
 
         # 没检查（off 档，或 auto 因地址不可达而放弃）
         reason = rev.get("reason") or f"--revoke={rev.get('mode', 'off')}"
@@ -432,8 +438,10 @@ def diagnose(inp: DiagInput) -> Diagnosis:
             cause=f"签名与证书链有效；未检查吊销状态（{reason}）",
             confidence="medium",
             advice=["需要吊销结论时加 --revoke=cache 或 --revoke=auto",
-                    "「未检查」不等于「吊销检查通过」"],
-            evidence=evidence + [f"吊销检查：{revoke_label(rev)}"])
+                    "「未检查」不等于「吊销检查通过」"]
+                   + (["签名之后存在额外数据，建议核对发布者给出的哈希"]
+                      if trailing > 0 else []),
+            evidence=evidence + [f"吊销检查：{revoke_label(rev)}"] + trailing_note)
 
     # 7.5) 文件类型本身就没有签名概念
     if st == "UnknownError":
