@@ -108,11 +108,11 @@ def generate_edges(out: Path, signed: Path | None) -> list[dict]:
         (edge / "truncated.exe").write_bytes(data[:8192])
         made.append({"file": "edge-cases/truncated.exe", "kind": "截断的 PE（8KB）"})
 
-        tail = data[:65536] if len(data) > 65536 else data
+        # 文件名测试要用**完整文件**：截断的副本会被判成 corrupt_pe，测不到文件名处理
         for name, kind in (("中文 文件.exe", "中文文件名"),
                            ("a b c.exe", "空格文件名"),
                            ("x[1].dll", "通配符字符文件名")):
-            (edge / name).write_bytes(tail)
+            (edge / name).write_bytes(data)
             made.append({"file": f"edge-cases/{name}", "kind": kind})
 
     (edge / "zero.exe").write_bytes(b"")
