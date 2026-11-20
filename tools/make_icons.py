@@ -10,12 +10,21 @@
 
 全部按 512 绘制再缩放，避免小尺寸发糊；背景透明，桌面/深色模式下都能用。
 """
+
 from __future__ import annotations
 
 import math
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
+import sys
+# 控制台编码保护：英文 Windows 的 stdout 是 cp1252，print 中文会直接抛
+# UnicodeEncodeError。这里只保证"不崩"，显示效果交给 chcp。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(errors="replace")
+    except Exception:  # noqa: BLE001
+        pass
 
 OUT = Path(__file__).resolve().parent.parent / "docs" / "icons"
 S = 512          # 绘制基准尺寸

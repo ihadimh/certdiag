@@ -8,6 +8,7 @@
     python tools/real_path_audit.py            # 全跑
     python tools/real_path_audit.py --fast     # 跳过联网与 online 吊销
 """
+
 from __future__ import annotations
 
 import json
@@ -16,6 +17,13 @@ import sys
 import time
 import traceback
 from pathlib import Path
+# 控制台编码保护：英文 Windows 的 stdout 是 cp1252，print 中文会直接抛
+# UnicodeEncodeError。这里只保证"不崩"，显示效果交给 chcp。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(errors="replace")
+    except Exception:  # noqa: BLE001
+        pass
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 

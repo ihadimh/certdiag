@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """检查 CSDN 文章的渲染结果：标题、标签、图片、代码块、层级结构。"""
+
 from __future__ import annotations
 
 import re
@@ -7,6 +8,13 @@ import sys
 from pathlib import Path
 
 from lxml import html
+# 控制台编码保护：英文 Windows 的 stdout 是 cp1252，print 中文会直接抛
+# UnicodeEncodeError。这里只保证"不崩"，显示效果交给 chcp。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(errors="replace")
+    except Exception:  # noqa: BLE001
+        pass
 
 p = Path(sys.argv[1] if len(sys.argv) > 1 else r"C:\Users\ASUS\AppData\Local\Temp\csdn.html")
 doc = html.fromstring(p.read_bytes())

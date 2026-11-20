@@ -20,6 +20,7 @@
     python tools/check_docs.py            # 全部检查
     python tools/check_docs.py -v         # 显示通过项
 """
+
 from __future__ import annotations
 
 import argparse
@@ -28,6 +29,13 @@ import json
 import re
 import sys
 from pathlib import Path
+# 控制台编码保护：英文 Windows 的 stdout 是 cp1252，print 中文会直接抛
+# UnicodeEncodeError。这里只保证"不崩"，显示效果交给 chcp。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(errors="replace")
+    except Exception:  # noqa: BLE001
+        pass
 
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = [ROOT / "README.md"] + sorted((ROOT / "docs").glob("*.md")) + sorted((ROOT / "docs" / "publish").glob("*.md"))

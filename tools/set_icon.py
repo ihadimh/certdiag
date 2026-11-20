@@ -13,12 +13,20 @@
     2. desktop.ini 必须用 UTF-16 (Unicode) 写，UTF-8 带 BOM 资源管理器不认。
     3. 改完要通知 shell 刷新（SHChangeNotify），否则仍显示旧图。
 """
+
 from __future__ import annotations
 
 import ctypes
 import subprocess
 import sys
 from pathlib import Path
+# 控制台编码保护：英文 Windows 的 stdout 是 cp1252，print 中文会直接抛
+# UnicodeEncodeError。这里只保证"不崩"，显示效果交给 chcp。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(errors="replace")
+    except Exception:  # noqa: BLE001
+        pass
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))

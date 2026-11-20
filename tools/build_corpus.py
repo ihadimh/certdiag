@@ -14,6 +14,7 @@
     python tools/build_corpus.py --limit 60 --out D:\\corpus
     python tools/build_corpus.py --no-generate       # 只复制系统文件
 """
+
 from __future__ import annotations
 
 import argparse
@@ -23,6 +24,13 @@ import os
 import shutil
 import sys
 from pathlib import Path
+# 控制台编码保护：英文 Windows 的 stdout 是 cp1252，print 中文会直接抛
+# UnicodeEncodeError。这里只保证"不崩"，显示效果交给 chcp。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(errors="replace")
+    except Exception:  # noqa: BLE001
+        pass
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))

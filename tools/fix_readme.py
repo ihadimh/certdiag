@@ -9,7 +9,16 @@
   5. Roadmap 里还写着"23 倍提速"，与第 2 条互相打脸
   6. build_portable 的使用说明写死 1.5.0，打出来的包自带错误版本号
 """
+import sys
+
 from pathlib import Path
+# 控制台编码保护：英文 Windows 的 stdout 是 cp1252，print 中文会直接抛
+# UnicodeEncodeError。这里只保证"不崩"，显示效果交给 chcp。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(errors="replace")
+    except Exception:  # noqa: BLE001
+        pass
 
 ROOT = Path(r"C:\Users\ASUS\Documents\deepseek-harness\default-workspace\certdiag")
 readme = ROOT / "README.md"
