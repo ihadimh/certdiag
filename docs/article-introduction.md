@@ -40,6 +40,10 @@ certdiag 的输出是这样的：
 建议：这是系统组件的常见形态，不需要处理
 ```
 
+![目录签名示例](images/fig1-catalog.png)
+
+*▲ 图 1：cmd.exe 的实际输出——"没有嵌入式签名"不等于"没有签名"*
+
 三件事是别的工具不做的：
 
 1. **给分类**（`catalog_only_trust` / `expired_with_timestamp` / `hresult:TRUST_E_BAD_DIGEST` …）
@@ -83,6 +87,10 @@ Windows 系统组件大多没有嵌入式签名，靠 `C:\Windows\System32\CatRo
 结论：❌ 无效 — 文件内容与签名不匹配（被修改或损坏）
 分类：hresult:TRUST_E_BAD_DIGEST  置信度：high
 ```
+
+![篡改样本](images/fig2-invalid.png)
+
+*▲ 图 2：同一个命令跑篡改样本，分类直接落到 `hresult:TRUST_E_BAD_DIGEST`*
 
 这条最确定，`0x80096010`。但也最容易被误归因——**很多人看到"签名无效"第一反应是证书问题，实际是文件不完整**。
 
@@ -168,6 +176,10 @@ python -m certdiag --ui
 
 本地起一个 Web 界面，支持拖拽、批量、导出 Markdown/JSON。默认只监听 `127.0.0.1`，且校验 `Origin` 与 `Sec-Fetch-Site`。
 
+![界面](images/ui.png)
+
+*▲ 图 3：Web 界面（仅本机可访问）*
+
 ---
 
 ## 五、性能
@@ -185,6 +197,10 @@ python -m certdiag --ui
 |---|---|
 | 300 个系统 dll | 11.3 s（38 ms/文件） |
 | 600 个系统 dll | 25.8 s（43 ms/文件） |
+
+![批量输出](images/fig3-batch.png)
+
+*▲ 图 4：批量扫描——每行一个文件，末尾括号内是分类*
 
 **600 个文件零误判**，在 Windows 11 和 Windows 10 上结论一致。
 
