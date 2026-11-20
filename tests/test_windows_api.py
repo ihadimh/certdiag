@@ -140,3 +140,33 @@ class TestNonAsciiPath(unittest.TestCase):
         finally:
             w.close()
             shutil.rmtree(tmp.parent, ignore_errors=True)
+
+
+@unittest.skipUnless(WINDOWS, "仅 Windows")
+class TestWorkerTempScripts(unittest.TestCase):
+    """worker 的临时 .ps1 必须写在专用目录，不能散落到当前目录。
+
+    曾经因为 tempfile 的候选目录不可写而回退到 cwd，
+    加上进程被强杀时 close() 不执行，仓库根目录里留下了 25 个
+    certdiag_worker_*.ps1，还被误提交进了 git。
+    """
+
+    def test_worker_script_not_in_cwd(self):
+        import os
+        from pathlib import Path as _P
+
+        from certdiag import psworker
+        from certdiag.collect import PowerShellWorker
+
+        before = {f.name for f in _P.cwd().glob("certdiag_worker_*.ps1")}
+        w = PowerShellWorker()
+        try:
+            script = _P(w._script)
+            self.assertTrue(script.exists(), "worker 脚本应存在")
+            self.assertEqual(script.parent.resolve(), psworker._worker_dir().resolve(),
+                             "worker 脚本应写在专用目录")
+            self.assertEqual({f.name for f in _P.cwd().glob("certdiag_worker_*.ps1")} - before,
+                             set(), "当前目录不应出现 worker 脚本")
+        finally:
+            w.close()
+        self.assertFalse(os.path.exists(script), "close() 应删除临时脚本")

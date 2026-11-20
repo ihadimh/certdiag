@@ -199,11 +199,42 @@ def _find_powershell() -> str:
     raise RuntimeError("未找到 PowerShell")
 
 
+def _worker_dir() -> Path:
+    """临时脚本的专用目录。
+
+    不能直接依赖 tempfile.gettempdir()：它的候选目录不可写时会退回到
+    当前工作目录，于是 certdiag_worker_*.ps1 就散落在仓库根目录里
+    （而且进程被强杀时 close() 不会执行，文件就永久留下了）。
+    """
+    base = os.environ.get("LOCALAPPDATA") or tempfile.gettempdir()
+    d = Path(base) / "certdiag" / "worker"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _cleanup_stale_scripts(max_age_hours: float = 24.0) -> None:
+    """启动时清理一天前的残留脚本，避免越积越多。"""
+    import time as _time
+
+    cutoff = _time.time() - max_age_hours * 3600
+    for d in (_worker_dir(), Path.cwd()):
+        try:
+            for f in d.glob("certdiag_worker_*.ps1"):
+                try:
+                    if f.stat().st_mtime < cutoff:
+                        f.unlink()
+                except OSError:
+                    pass
+        except OSError:
+            pass
+
+
 class PowerShellWorker:
     """一个进程内复用的采集器。用 with 语句或显式 close() 释放。"""
 
     def __init__(self, startup_timeout: float = 20.0):
         self._ps = _find_powershell()
+        _cleanup_stale_scripts()
         self._proc: subprocess.Popen | None = None
         self._lock = threading.Lock()
         self._start()
@@ -212,9 +243,12 @@ class PowerShellWorker:
     def _start(self):
         # 脚本写到临时文件，再以 -File 启动；
         # 不能用 "-Command -"，那会把 stdin 整体当作脚本来读，无法逐行交互。
-        fd, self._script = tempfile.mkstemp(prefix="certdiag_worker_", suffix=".ps1")
+        fd, self._script = tempfile.mkstemp(prefix="certdiag_worker_", suffix=".ps1",
+                                           dir=str(_worker_dir()))
         with os.fdopen(fd, "w", encoding="utf-8-sig") as fh:
             fh.write(WORKER_PS)
+        if getattr(self, "_script", None) and os.environ.get("CERTDIAG_KEEP_WORKER_SCRIPT"):
+            print(f"[debug] worker 脚本保留在 {self._script}")
         self._proc = subprocess.Popen(
             [self._ps, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
              "-File", self._script],
