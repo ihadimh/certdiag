@@ -57,6 +57,15 @@ python -m certdiag samples\tampered.exe --no-probe   # hresult:TRUST_E_BAD_DIGES
 python -m certdiag "不存在的文件"                     # 退出码 3
 ```
 
+## 版本号纪律
+
+`certdiag/__init__.py` 的 `__version__` 是唯一来源，**提交信息里的版本号必须与它一致**。
+曾出现过提交写 "v1.9.3"、代码仍是 1.9.0 的情况——发布前先核对：
+
+```powershell
+python -c "import certdiag; print(certdiag.__version__)"
+```
+
 ## 发布流程
 
 ```

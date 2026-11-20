@@ -19,7 +19,7 @@
 
 **走的是只读路线**：不装根证书、不改信任库、不绕过校验（详见 [SECURITY.md](SECURITY.md)）。
 
-📌 [能做什么、不能做什么](docs/CAPABILITIES.md) · [维护与验证](docs/MAINTAINING.md) · [设计决策](docs/DECISIONS.md) · [已知问题](docs/KNOWN_ISSUES.md) · [真实路径审计](docs/REAL-PATH-REPORT.md)
+📌 [能做什么、不能做什么](docs/CAPABILITIES.md) · [维护与验证](docs/MAINTAINING.md) · [设计决策](docs/DECISIONS.md) · [已知问题](docs/KNOWN_ISSUES.md) · [真实路径审计](docs/REAL-PATH-REPORT.md) · [虚拟机验收](docs/vm-test-report.md)
 
 📖 想看"为什么签名会误判"的完整故事：[Windows 提示"签名无效"，可能根本不是签名的问题](docs/article-signature-misdiagnosis.md)
 
@@ -217,7 +217,7 @@ Markdown 报告包含：结论、签名信息（含 WinVerifyTrust 的精确 HRE
 | 600 个系统 dll | **25.8 s**（43 ms/文件） |
 | 单文件（worker 已起） | ~20 ms |
 
-> v1.9.0 把时间戳解析搬进常驻 worker，并把"整文件读入"改成"只读 PE 头 + 证书表"：
+> v2.0.0 把时间戳解析搬进常驻 worker，并把"整文件读入"改成"只读 PE 头 + 证书表"：
 > 单个文件的令牌校验从 250~600 ms 降到 1~4 ms，300 个文件的批量从 77.6 s 降到 11.3 s。
 
 > 测量条件：Windows 11 22621、`C:\Windows\System32\*.dll` 取 12 个、跳过网络探测、冷/热缓存未区分。
@@ -487,7 +487,7 @@ python -m certdiag app.exe --revoke=auto    # 推荐：先探路再决定要不�
 也算作失败（退出码 1）。默认的 `--fail-on invalid` 不会因为"没签名"而失败——这是两个不同的用途，
 别混用。
 
-## JSON 输出结构（v1.9.0 起固定）
+## JSON 输出结构（v2.0.0 起固定）
 
 ```json
 {
