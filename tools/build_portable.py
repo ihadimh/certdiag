@@ -180,12 +180,12 @@ exit /b 1
 """
 
 
-USAGE_TXT = r"""certdiag 1.5.0 便携版 · 使用说明
+USAGE_TXT = r"""certdiag {ver} 便携版 · 使用说明
 ==================================================
 
 一、怎么启动（必须先解压）
   1. 右键压缩包 → 全部解压缩（不要在压缩包预览窗口里直接双击里面的文件）
-  2. 打开解压出的文件夹 certdiag-portable-1.5.0
+  2. 打开解压出的文件夹 certdiag-portable-{ver}
   3. 双击「双击启动」→ 浏览器会打开 http://127.0.0.1:8765
   4. 把 exe / dll 拖进窗口，或点「选择文件」
 
@@ -295,7 +295,7 @@ def main() -> int:
     if ico.exists():
         shutil.copy2(ico, out / "certdiag-seal.ico")
         print("[+] certdiag-seal.ico（快捷方式图标）")
-    (out / "使用说明.txt").write_text(USAGE_TXT, encoding="utf-8-sig")
+    (out / "使用说明.txt").write_text(USAGE_TXT.replace("{ver}", ver), encoding="utf-8-sig")
     print("[+] 使用说明.txt")
 
     zpkg = DIST / f"{name}.zip"

@@ -67,10 +67,13 @@ Windows 上签名校验失败时，系统给的往往是一句没用的话：
 
 ## 免安装便携版（推荐给不想装 Python 的人）
 
-**[⬇ 下载 certdiag-portable-1.5.0.zip](https://github.com/ihadimh/certdiag/releases/download/v1.5.0/certdiag-portable-1.5.0.zip)**（约 11 MB，解压后**双击即用**，自带 Python 运行时）
+**[⬇ 下载最新便携版](https://github.com/ihadimh/certdiag/releases/latest)**（约 11 MB，解压后**双击即用**，自带 Python 运行时）
+
+发布页里的 `certdiag-portable.zip` 永远是最新版，校验值在同页 `SHA256SUMS.txt`。
+（早期版本用带版本号的文件名，导致 README 里的链接会过期；现在资产名固定，链接不会失效。）
 
 ```
-certdiag-portable-1.5.0/
+certdiag-portable-<版本>/
 ├── 双击启动.cmd      ← 打开图形界面（无黑框）
 ├── 命令行诊断.cmd    ← 把文件拖到它上面，直接出结论
 ├── runtime/          ← 自带 Python 3.12（embeddable）
@@ -217,13 +220,12 @@ Markdown 报告包含：结论、签名信息（含 WinVerifyTrust 的精确 HRE
 | 600 个系统 dll | **25.8 s**（43 ms/文件） |
 | 单文件（worker 已起） | ~20 ms |
 
-> v2.1.1 把时间戳解析搬进常驻 worker，并把"整文件读入"改成"只读 PE 头 + 证书表"：
-> 单个文件的令牌校验从 250~600 ms 降到 1~4 ms，300 个文件的批量从 77.6 s 降到 11.3 s。
+> v1.9.0 把时间戳解析搬进常驻 worker，并把"整文件读入"改成"只读 PE 头 + 证书表"：
+> 单个文件的令牌校验从 250~600 ms 降到 1~4 ms，300 个文件的批量从 77.6 s 降到 11.3 s（6.9×）。
 
-> 测量条件：Windows 11 22621、`C:\Windows\System32\*.dll` 取 12 个、跳过网络探测、冷/热缓存未区分。
-> **加速比只有约 1.2 倍**——早期文档里的"103 s → 4.5 s（23×）"是另一次不同条件下的数字，
-> 不应再引用。worker 的真正收益主要在 PowerShell 启动慢的机器上（冷启动、杀软扫描、组策略），
-> 单文件场景几乎没有差别。要复测请用同一批文件、同一 `--no-probe` 设置。
+> 测量条件：Windows 11 22621，`C:\Windows\System32` 下按文件名排序取 300 / 600 个 dll，
+> `--no-probe`，缓存已热。**该数字不能直接套到单文件场景**——单文件主要是进程启动开销（约 2 s），
+> 优化前后差别不大；批量才是 worker 的收益所在。要复测请用同一批文件、同一 `--no-probe` 设置。
 
 实现：一个常驻 PowerShell 进程，按行收发 JSON（`psworker.py`）。
 
@@ -383,7 +385,10 @@ certdiag/
 
 ```bash
 python -m unittest discover -s tests -v
-# Ran 52 tests ... OK
+# Ran 121 tests ... OK
+
+python tools/ui_selftest.py          # 界面 12 项 HTTP 自检
+python verify.py                     # 121 个测试 + 3 个真实场景
 ```
 
 测试固定的不变量：
@@ -403,6 +408,12 @@ python -m unittest discover -s tests -v
 | 系统组件（仅目录签名） | `catalog_only_trust`，附 `.cat` 路径与签名状态 |
 | OCSP 端点拒绝 GET | 标记 `inconclusive`，不影响总体结论 |
 | CPS 声明页超时 | **忽略**，不计入吊销失败（曾误报，已修复） |
+| 文件内容被篡改 | `hresult:TRUST_E_BAD_DIGEST`，invalid，置信度 high |
+| 自签名 / 内部 CA | `untrusted_root`，invalid，confidence high |
+| 截断的 PE（节表越界） | `corrupt_pe`，unknown |
+| 非 PE 内容 / 0 字节 | `not_pe_file`，unknown |
+| 无签名且无目录覆盖 | `no_signature`，unknown |
+| 中文路径、空格、方括号文件名 | 正常诊断（曾因 stdin 编码误报"文件不存在"） |
 
 ## 吊销检查：把"查没查"变成显式选择
 
@@ -424,24 +435,28 @@ python -m certdiag app.exe --revoke=cache   # 毫秒级，缓存命中才有结�
 python -m certdiag app.exe --revoke=auto    # 推荐：先探路再决定要不要查
 ```
 
-同一个文件（Packet Tracer）三种档位的实际输出：
+同一个文件（Packet Tracer 9.0.1）三种档位的实际输出与耗时（三次取平均）：
 
 ```
-# off —— 2.7 秒，明确说没查
+# off —— 1.8 秒，明确说没查
 结论：✅ 有效 — 签名与证书链有效；未检查吊销状态（--revoke=off）
 分类：valid_revocation_unchecked  置信度：medium
 吊销：未检查（--revoke=off）
 
-# cache —— 3.3 秒，本机缓存里没有 CRL 时应如实说"无法确认"
-结论：⚠️ 无法判定 — 吊销状态未知（系统链报告 OfflineRevocation）
-分类：revocation_unverified  置信度：medium
-吊销：未检查（系统链报告 OfflineRevocation）
+# cache（默认）—— 2.3 秒，本机缓存里已有该 CA 的 CRL，命中即给结论
+结论：✅ 有效 — 签名、证书链与吊销状态均已检查通过
+分类：valid_revocation_checked_ok  置信度：high
+吊销：已检查（正常）
 
-# auto —— 4.9 秒，探测到地址可达后真的联网查了
+# auto —— 2.1 秒，先探测地址可达，再联网查
 结论：✅ 有效 — 签名、证书链与吊销状态均已检查通过
 分类：valid_revocation_checked_ok  置信度：high
 吊销：已检查（正常）
 ```
+
+> `cache` 的结果取决于本机缓存：命中时给 `checked_ok`，未命中时如实写
+> 「吊销：未检查（系统链报告 OfflineRevocation）」，分类 `revocation_unverified`。
+> 这不是不稳定，而是「查到就说查到，没查到就说没查到」。
 
 > `cache` 档有个副作用：用 `auto` 查过一次之后，CRL 进了本地缓存，再跑 `cache` 就能命中并给出
 > `checked_ok`。这不矛盾——缓存命中本来就是吊销检查的正常路径之一。
@@ -668,16 +683,23 @@ python verify.py
 | 时间戳只验令牌签名与 TSA 证书信息 | 未做 TSA 完整信任链与吊销检查 | v3 补 `CertGetCertificateChain` |
 | 不验证 OCSP 响应签名 | 只判断可达性 | v3 用 `cryptography` 做 ASN.1 校验 |
 | 代理只读环境变量与 IE 设置 | 不解析 PAC 脚本，PAC 环境仍可能误判 | v3 支持 PAC |
+| 双签名（嵌套签名）只取第一个签名者 | 多签文件的证据不完整 | 见 issue #1 |
+| 旧式 PKCS#9 countersignature 只记录不验签 | 老文件（如 d3dx9）显示 `expired_with_timestamp` | 见 issue #6 |
+| 没有真实已吊销证书样本 | `revoked` 分支只有单元测试 | 见 issue #3 |
 
 ## Roadmap
 
 - [x] MVP：采集 + 链 + 吊销探测 + 归因 + 双格式报告
 - [x] 目录签名（catalog）查找与验证
 - [x] WinVerifyTrust 精确 HRESULT
-- [x] 常驻 PowerShell worker（23 倍提速）
+- [x] 常驻 PowerShell worker（批量 300 个：77.6 s → 11.3 s）
 - [x] 读取系统代理配置
 - [x] 本地 Web 图形界面
 - [x] 时间戳令牌校验（SignedCms）
+- [x] 证据层：证据 / 冲突 / 未验证清单 / 置信度依据
+- [x] `--strict`：证据不足就判 unknown
+- [x] 界面 12 项 HTTP 自检（并发、413、403）
+- [x] Windows 10 虚拟机验收（100 个系统文件零误判）
 - [ ] C# 版本（单文件分发）
 
 ## 许可
