@@ -49,3 +49,21 @@ class TestDocsConsistency(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestDocsChecker(unittest.TestCase):
+    """把 tools/check_docs.py 的九项检查并入测试。"""
+
+    def test_all_doc_checks_pass(self):
+        import importlib.util
+        import sys as _sys
+
+        path = ROOT / "tools" / "check_docs.py"
+        spec = importlib.util.spec_from_file_location("check_docs", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        for fn in (mod.check_categories, mod.check_flags, mod.check_endpoints,
+                   mod.check_links, mod.check_versions, mod.check_test_count,
+                   mod.check_exit_codes, mod.check_schema, mod.check_images):
+            fn()
+        self.assertEqual(mod.problems, [], "文档与代码不一致：\n" + "\n".join(mod.problems))

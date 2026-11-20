@@ -6,8 +6,8 @@
 
 | 项 | 值 |
 |---|---|
-| 版本 | 1.6.0，唯一来源 `certdiag/__init__.py` 的 `__version__` |
-| 发布 | Release v1.6.0，资产 `certdiag-portable-1.6.0.zip` |
+| 版本 | 唯一来源 `certdiag/__init__.py` 的 `__version__`（本文不重复写版本号） |
+| 发布 | 资产固定命名 `certdiag-portable.zip`，README 指向 `/releases/latest` |
 | 依赖 | 仅标准库 + Windows 自带 PowerShell |
 
 ## 能力边界
@@ -20,7 +20,7 @@
 改完任何东西，跑这三条：
 
 ```powershell
-python -m unittest discover -s tests     # 97 个用例
+python -m unittest discover -s tests     # 127 个用例
 python verify.py                         # 4 个真实场景
 python -m certdiag "C:\Windows\System32\cmd.exe" --no-probe
 ```
