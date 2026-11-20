@@ -178,6 +178,12 @@ def write_report(path: Path, env: dict, results: list[tuple[str, bool]]) -> None
 
 
 def main() -> int:
+    # 先生成样本：单元测试里有依赖 samples/ 的用例，新机器上否则会 skip
+    try:
+        ensure_samples()
+    except Exception:  # noqa: BLE001
+        pass
+
     report_path = None
     argv = sys.argv[1:]
     if "--report" in argv:

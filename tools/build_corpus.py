@@ -186,7 +186,7 @@ def main() -> int:
     out = Path(args.out)
     if out.exists():
         shutil.rmtree(out)
-    out.mkdir(parents=True)
+    out.mkdir(parents=True, exist_ok=True)
 
     win = Path(os.environ.get("SystemRoot", r"C:\Windows"))
     pools = {
@@ -244,6 +244,11 @@ def main() -> int:
             continue
     if signed_sample is None:
         signed_sample = next((o["file"] for o in chosen if o["verdict"] == "valid"), None)
+    if signed_sample is not None:
+        print(f"样本基底：{signed_sample}")
+        if (ROOT / "samples" / "signed_ok.exe").exists() and Path(signed_sample) != (ROOT / "samples" / "signed_ok.exe"):
+            print("  （samples/signed_ok.exe 在本次环境中不是 S_OK，已回退到系统文件；"
+                  "副本会体现该文件本身的签名形态）")
     if signed_sample is None:
         signed_sample = next((o["file"] for o in chosen), None)
     if not args.no_generate:
@@ -287,8 +292,10 @@ def main() -> int:
             pass
 
     (out / "manifest.json").write_text(
-        json.dumps({"generated_by": "tools/build_corpus.py", "count": len(manifest),
-                    "items": manifest}, ensure_ascii=False, indent=2),
+        json.dumps({"generated_by": "tools/build_corpus.py",
+                    "base_sample": str(signed_sample) if signed_sample else None,
+                    "count": len(manifest), "items": manifest},
+                   ensure_ascii=False, indent=2),
         encoding="utf-8")
 
     (out / "README.md").write_text(
