@@ -30,6 +30,9 @@ jobs:
 
       - name: 自检（真实场景）
         run: python verify.py
+      - name: 界面自检（HTTP 层）
+        run: python tools/ui_selftest.py
+
       - name: 退出码语义
         shell: pwsh
         run: |

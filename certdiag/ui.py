@@ -397,6 +397,10 @@ window.addEventListener('load', () => {
 """
 
 
+class PayloadTooLarge(ValueError):
+    """请求体超过上限：应该回 413，而不是 200 + 错误文本。"""
+
+
 class _Handler(BaseHTTPRequestHandler):
     server_version = "certdiag-ui/0.6"
     # HTTP/1.0 的流式响应靠"关连接"分帧，浏览器会缓冲；1.1 + chunked 才能边收边渲染
@@ -426,7 +430,7 @@ class _Handler(BaseHTTPRequestHandler):
     def _payload(self) -> dict:
         n = int(self.headers.get("Content-Length") or 0)
         if n > self.MAX_BODY:
-            raise ValueError(f"请求体过大（{n} 字节，上限 {self.MAX_BODY}）")
+            raise PayloadTooLarge(f"请求体过大（{n} 字节，上限 {self.MAX_BODY}）")
         return json.loads(self.rfile.read(n) or b"{}")
 
     def _opts(self, p: dict) -> dict:
@@ -489,6 +493,8 @@ class _Handler(BaseHTTPRequestHandler):
                 self._upload()
             else:
                 self._json({"error": "not found"}, 404)
+        except PayloadTooLarge as e:
+            self._json({"error": str(e)}, 413)
         except Exception as e:  # noqa: BLE001
             self._json({"error": str(e)})
 
