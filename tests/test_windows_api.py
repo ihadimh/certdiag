@@ -130,7 +130,12 @@ class TestNonAsciiPath(unittest.TestCase):
         w = PowerShellWorker()
         try:
             r = w.collect(str(target), 30, "NoCheck", False)
-            self.assertEqual(r.get("path"), str(target))
+            # 不能直接比字符串：CI 的 TEMP 是 8.3 短名（RUNNER~1），
+            # PowerShell 返回的是长名，realpath 归一到同一形式再比
+            import os as _os
+
+            self.assertEqual(_os.path.normcase(_os.path.realpath(r.get("path") or "")),
+                             _os.path.normcase(_os.path.realpath(str(target))))
             self.assertIsNotNone(r.get("status"), f"采集失败：{r.get('error')}")
         finally:
             w.close()

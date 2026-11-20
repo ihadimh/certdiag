@@ -81,7 +81,17 @@ def main() -> int:
 
     cmd = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "cmd.exe"
     sample = ROOT / "samples" / "signed_ok.exe"
-    samples_dir = ROOT / "samples"
+
+    # CI 的 checkout 里没有 samples/*.exe（二进制不入库），
+    # 批量用例改用临时目录里的系统文件副本，保证不依赖工作区状态
+    import shutil as _shutil
+    import tempfile as _tempfile
+
+    samples_dir = Path(_tempfile.mkdtemp(prefix="certdiag_ui_"))
+    for _name in ("cmd.exe", "notepad.exe", "calc.exe"):
+        _src = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / _name
+        if _src.exists():
+            _shutil.copy2(_src, samples_dir / _name)
 
     # 1. 健康检查
     try:
@@ -199,6 +209,7 @@ def main() -> int:
     except Exception as e:  # noqa: BLE001
         record("并发 8 个请求", False, str(e))
 
+    _shutil.rmtree(samples_dir, ignore_errors=True)
     srv.shutdown()
 
     fails = [r for r in RESULTS if not r[1]]
