@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 下载最新便携版
+    url: https://github.com/ihadimh/certdiag/releases/latest
+    about: 不想装 Python 时用这个，自带运行时，解压双击即用
+  - name: 安全说明与边界
+    url: https://github.com/ihadimh/certdiag/blob/main/SECURITY.md
+    about: 本工具只读、不装证书、不绕过校验；报告安全问题前请先看这里
+  - name: 已知问题
+    url: https://github.com/ihadimh/certdiag/blob/main/docs/KNOWN_ISSUES.md
+    about: 有些限制是已知的（时间戳链、目录成员校验、吊销样本等），先看看是否已记录
