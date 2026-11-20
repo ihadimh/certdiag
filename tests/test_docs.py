@@ -67,3 +67,20 @@ class TestDocsChecker(unittest.TestCase):
                    mod.check_exit_codes, mod.check_schema, mod.check_images):
             fn()
         self.assertEqual(mod.problems, [], "文档与代码不一致：\n" + "\n".join(mod.problems))
+
+
+class TestToolsRunIsolated(unittest.TestCase):
+    """`python tools/xxx.py` 时 sys.path[0] 是 tools/，import certdiag 会失败。
+
+    CI 上就是这样炸的（本地有 PYTHONPATH 帮忙，看不出来）。
+    用 -I（隔离模式）跑一遍，等价于 CI 的干净环境。
+    """
+
+    def test_check_docs_isolated(self):
+        import subprocess
+        import sys as _sys
+
+        r = subprocess.run([_sys.executable, "-I", str(ROOT / "tools" / "check_docs.py")],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace",
+                           timeout=120)
+        self.assertEqual(r.returncode, 0, f"check_docs 在隔离模式下失败：{r.stdout[-800:]} {r.stderr[-800:]}")

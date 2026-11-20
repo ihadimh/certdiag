@@ -38,6 +38,11 @@ for _stream in (sys.stdout, sys.stderr):
         pass
 
 ROOT = Path(__file__).resolve().parent.parent
+# 直接以 `python tools/check_docs.py` 运行时，sys.path[0] 是 tools/，
+# import certdiag 会失败（CI 上就是这样）。显式把仓库根加进去。
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 DOCS = [ROOT / "README.md"] + sorted((ROOT / "docs").glob("*.md")) + sorted((ROOT / "docs" / "publish").glob("*.md"))
 
 problems: list[str] = []
