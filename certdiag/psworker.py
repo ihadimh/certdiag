@@ -199,17 +199,53 @@ def _find_powershell() -> str:
     raise RuntimeError("未找到 PowerShell")
 
 
-def _worker_dir() -> Path:
-    """临时脚本的专用目录。
+def _candidate_dirs() -> list[Path]:
+    """按优先级给出可写目录候选。
 
-    不能直接依赖 tempfile.gettempdir()：它的候选目录不可写时会退回到
-    当前工作目录，于是 certdiag_worker_*.ps1 就散落在仓库根目录里
-    （而且进程被强杀时 close() 不会执行，文件就永久留下了）。
+    2026-11-22 实测：某些环境下便携版 Python 写 %LOCALAPPDATA% 会
+    PermissionError，而 %TEMP% 里 mkstemp 会卡死（O_EXCL 创建被拦截）。
+    因此不能硬编码一个目录，只能逐个探测；探测用普通 open('w')，
+    失败是立刻抛异常，不会卡住。
     """
-    base = os.environ.get("LOCALAPPDATA") or tempfile.gettempdir()
-    d = Path(base) / "certdiag" / "worker"
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+    env = os.environ.get("CERTDIAG_TMP")
+    cands = []
+    if env:
+        cands.append(Path(env))
+    cands += [
+        Path.cwd() / ".certdiag-tmp",
+        Path(tempfile.gettempdir()) / "certdiag-tmp",
+        Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "certdiag" / "worker",
+    ]
+    return cands
+
+
+def _worker_dir() -> Path:
+    for d in _candidate_dirs():
+        try:
+            d.mkdir(parents=True, exist_ok=True)
+            probe = d / ".write-probe"
+            with open(probe, "w", encoding="utf-8") as fh:
+                fh.write("x")
+            probe.unlink()
+            return d
+        except Exception:  # noqa: BLE001
+            continue
+    return Path(tempfile.gettempdir())
+
+
+def _new_script_path(d: Path) -> str:
+    """用普通 open('w') 建文件，避免 mkstemp 的 O_EXCL 在部分环境卡死。"""
+    import uuid
+
+    for _ in range(5):
+        p = d / f"certdiag_worker_{uuid.uuid4().hex[:8]}.ps1"
+        try:
+            with open(p, "w", encoding="utf-8"):
+                pass
+            return str(p)
+        except FileExistsError:
+            continue
+    raise RuntimeError(f"无法在 {d} 创建临时脚本")
 
 
 def _cleanup_stale_scripts(max_age_hours: float = 24.0) -> None:
@@ -217,7 +253,7 @@ def _cleanup_stale_scripts(max_age_hours: float = 24.0) -> None:
     import time as _time
 
     cutoff = _time.time() - max_age_hours * 3600
-    for d in (_worker_dir(), Path.cwd()):
+    for d in _candidate_dirs():
         try:
             for f in d.glob("certdiag_worker_*.ps1"):
                 try:
@@ -243,9 +279,8 @@ class PowerShellWorker:
     def _start(self):
         # 脚本写到临时文件，再以 -File 启动；
         # 不能用 "-Command -"，那会把 stdin 整体当作脚本来读，无法逐行交互。
-        fd, self._script = tempfile.mkstemp(prefix="certdiag_worker_", suffix=".ps1",
-                                           dir=str(_worker_dir()))
-        with os.fdopen(fd, "w", encoding="utf-8-sig") as fh:
+        self._script = _new_script_path(_worker_dir())
+        with open(self._script, "w", encoding="utf-8-sig") as fh:
             fh.write(WORKER_PS)
         if getattr(self, "_script", None) and os.environ.get("CERTDIAG_KEEP_WORKER_SCRIPT"):
             print(f"[debug] worker 脚本保留在 {self._script}")

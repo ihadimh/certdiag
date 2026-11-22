@@ -30,3 +30,6 @@ tools/.push_repo.local.py
 
 # 运行期临时脚本（worker 用，绝不应入库）
 certdiag_worker_*.ps1
+
+# 运行期临时目录（worker 脚本）
+.certdiag-tmp/
