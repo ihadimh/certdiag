@@ -60,11 +60,30 @@ def _catalog_info(path: Path) -> dict:
     }
 
 
+def _trace_on(enabled: bool):
+    """返回一个打印函数；默认写 stderr，避免污染 stdout 的报告内容。"""
+    if not enabled:
+        return lambda *a, **k: None
+
+    def emit(msg: str) -> None:
+        print(f"[trace] {msg}", file=sys.stderr, flush=True)
+
+    return emit
+
+
 def diagnose_one(path: Path, offline: bool, no_probe: bool, timeout: float,
                  force_catalog: bool = False, force_timestamp: bool = False,
                  revoke_mode: str = "off", allow_private: bool = False,
-                 strict: bool = False) -> dict:
+                 strict: bool = False, trace: bool = False) -> dict:
+    emit = _trace_on(trace)
+    emit(f"输入：{path}")
+
     collected = collect(path, offline=offline)
+    emit(f"采集：status={collected.get('status')} "
+         f"error={collected.get('error')} "
+         f"证书过期={bool(collected.get('signer_expired'))} "
+         f"链元素={len(((collected.get('chain') or {}).get('elements') or []))} "
+         f"CRL/OCSP地址={len(collected.get('crl_ocsp_urls') or [])}")
 
     # 结构探测：只在扩展名像程序时做，用来区分"文件损坏"和"类型不支持"
     pe_info: dict = {}
@@ -78,6 +97,10 @@ def diagnose_one(path: Path, offline: bool, no_probe: bool, timeout: float,
     collected["hresult_name"] = wv.get("name")
     collected["hresult_desc"] = wv.get("desc")
 
+    emit(f"WinVerifyTrust：0x{(wv.get('hresult') or 0):08X} {wv.get('name')}")
+    if pe_info:
+        emit(f"PE 结构：is_pe={pe_info.get('is_pe')} truncated={pe_info.get('truncated')}")
+
     # 时间戳只在"证书已过期"时才有判断价值（决定过期是否影响签名有效性），
     # 默认不跑，避免批量扫描每个文件多花约 250ms
     ts: dict = {}
@@ -85,11 +108,17 @@ def diagnose_one(path: Path, offline: bool, no_probe: bool, timeout: float,
         ts = timestamp_verify(str(path))
         collected["timestamp"] = ts
 
+    if ts:
+        emit(f"时间戳：has_token={ts.get('has_token')} token_ok={ts.get('token_ok')} "
+             f"error={ts.get('error')}")
+
     catalog: dict = {}
     if (force_catalog
             or collected.get("status") in ("NotSigned", "NotSupportedFileFormat")
             or collected.get("hresult") == 0x800B0100):
         catalog = _catalog_info(path)
+
+    emit(f"目录签名：found={catalog.get('found')} path={catalog.get('path')}")
 
     probes: list[dict] = []
     if not offline and not no_probe:
@@ -138,9 +167,14 @@ def diagnose_one(path: Path, offline: bool, no_probe: bool, timeout: float,
                                          revoked=revoked, reason=reason)
     collected["revocation"] = revocation
 
+    emit(f"吊销档位：请求={revoke_mode} 实际={effective} 已检查={checked} "
+         f"已吊销={revoked} 原因={reason}")
+
     diag = diagnose_from_collect(collected, probes, offline=offline,
                                  catalog=catalog, timestamp=ts,
                                  revocation=revocation, pe=pe_info)
+
+    emit(f"归因：{diag.category} → {diag.verdict}（{diag.confidence}）原因={diag.cause}")
 
     # 证据层：把信号摊开、找冲突、列出未检查项，并据此重算置信度
     signals = evidence_layer.collect_signals(
@@ -154,6 +188,11 @@ def diagnose_one(path: Path, offline: bool, no_probe: bool, timeout: float,
     diag.signals = [s.to_dict() for s in signals]
     diag.conflicts = conflicts
     diag.not_checked = missing
+
+    emit(f"证据：信号 {len(signals)} 条，冲突 {len(conflicts)} 条，未验证 {len(missing)} 项")
+    emit(f"置信度：{diag.confidence}（{diag.confidence_basis}）")
+    if strict:
+        emit(f"严格模式：{diag.verdict} / {diag.confidence}")
 
     # 严格模式：证据不足就不下结论（invalid 是强证据，不受影响）
     if strict:
@@ -255,6 +294,8 @@ def main(argv: list[str] | None = None) -> int:
                     help="允许探测内网/回环地址（证书里的地址不可信，默认拒绝）")
     ap.add_argument("--strict", action="store_true",
                     help="保守模式：任何影响结论的证据缺口（如未查吊销）都判为「无法判定」")
+    ap.add_argument("--trace", action="store_true",
+                    help="打印决策过程（采集→归因→证据→置信度），用于理解或排错")
     ap.add_argument("--require-signature", action="store_true",
                     help="把「无签名 / 无法验证签名」也视为失败（退出码 1），用于签名门禁")
     ap.add_argument("--revoke", choices=list(revoke_policy.MODES),
@@ -307,7 +348,8 @@ def main(argv: list[str] | None = None) -> int:
             try:
                 rep = diagnose_one(f, args.offline, args.no_probe, args.timeout,
                                    args.catalog, args.timestamp, args.revoke,
-                                   args.allow_private, args.strict)
+                                   args.allow_private, args.strict,
+                                   trace=args.trace)
             except Exception as e:  # noqa: BLE001
                 failed.append(str(f))
                 print(f"[!] 诊断失败：{f} — {e}", file=sys.stderr)

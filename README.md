@@ -94,6 +94,9 @@ certdiag-portable-<版本>/
 # 诊断单个文件
 python -m certdiag "C:\Program Files\XX\app.exe"
 
+# 看它每一步是怎么判断的（学习 / 排错用）
+python -m certdiag app.exe --trace
+
 # 生成 Markdown 与 JSON 报告
 python -m certdiag app.exe --md report.md --json report.json
 
