@@ -209,6 +209,13 @@
       "title": "无法归因",
       "when": "现有信息不足以判断",
       "action": "带 --json 报告和 verify.py --report 提 issue"
+    },
+    {
+      "id": "collect_failed",
+      "verdict": "unknown",
+      "title": "文件读取失败，无法判断签名",
+      "when": "采集阶段读不到文件（被占用、权限不足、网络盘断开）",
+      "action": "先解决占用/权限问题，再重新诊断"
     }
   ],
   "dynamic_prefixes": [

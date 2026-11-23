@@ -544,6 +544,23 @@ def diagnose_from_collect(collected: dict, probes: list[dict], offline: bool = F
                           revocation: dict | None = None,
                           pe: dict | None = None) -> Diagnosis:
     """从采集器的原始 JSON 构造输入并归因。"""
+    # 读不到文件时，"没有状态/没有 PE 信息"不是证据，不能拿去判 not_pe_file。
+    # 这一步必须在所有结构判断之前，否则会被解释成"内容不是 PE"。
+    err = collected.get("error")
+    if err and not collected.get("status"):
+        return Diagnosis(
+            category="collect_failed",
+            verdict=VERDICT_UNKNOWN,
+            cause=f"读取文件失败，无法判断签名：{err}",
+            confidence="low",
+            advice=[
+                "先确认文件是否正被别的程序占用（关闭后重试）",
+                "确认当前用户对该文件有读取权限",
+                "如果是网络盘/移动盘，确认连接仍然有效",
+            ],
+            evidence=[f"采集错误：{err}"],
+        )
+
     chain = collected.get("chain") or {}
     chain_flags = [c.get("status", "") for c in (chain.get("chain_status") or []) if c.get("status")]
     element_flags: list[str] = []

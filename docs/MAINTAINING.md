@@ -10,6 +10,24 @@
 | 发布 | 资产固定命名 `certdiag-portable.zip`，README 指向 `/releases/latest` |
 | 依赖 | 仅标准库 + Windows 自带 PowerShell |
 
+## 数据流（改代码前先看这个）
+
+| 阶段 | 代码 | 输入 → 输出 | 失败时 |
+|---|---|---|---|
+| 采集 | `collect.py` / `psworker.py` / `catalog.py` / `pe.py` / `timestamp.py` | 路径 → 原始信号 dict | 返回 `error`，`status` 为空 |
+| 归因 | `attrib.py` | 原始信号 → 分类 / 结论 / 原因 / 建议 | 纯函数，不会失败 |
+| 证据 | `evidence.py` | 原始信号 + 归因结果 → 信号 / 冲突 / 未验证 / 置信度 | 纯函数，不会失败 |
+| 输出 | `report.py` / `cli.py` / `ui.py` | 报告对象 → 文本 / JSON / 页面 | — |
+
+两条约束：
+
+1. **采集失败必须走 `collect_failed`**，不能把"没有数据"解释成"结构不对"。
+   2026-11-23 修过一次：文件被占用时报成了 `not_pe_file`（说内容不是 PE），
+   实际只是读不到。
+2. **证据层只能降置信度，不能升**。归因说 high，有冲突就压到 low；反之不允许。
+
+调试：`python -m certdiag <文件> --trace` 会按上面的阶段打印实际取值。
+
 ## 能力边界
 
 改行为前先读 [CAPABILITIES.md](CAPABILITIES.md)：它写了什么能做什么不能做、什么时候准什么时候不准。

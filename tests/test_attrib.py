@@ -300,3 +300,20 @@ class TestRevocationEvidence(unittest.TestCase):
                         "state": "unchecked", "reason": "吊销复查采集失败：worker 无响应"}))
         self.assertEqual(d.category, "valid_revocation_unchecked")
         self.assertIn("吊销复查采集失败", d.cause)
+
+
+class TestCollectFailed(unittest.TestCase):
+    """读不到文件时不能被解释成"内容不是 PE"。"""
+
+    def test_error_without_status_is_collect_failed(self):
+        from certdiag.attrib import diagnose_from_collect
+
+        diag = diagnose_from_collect(
+            {"path": "C:/x/locked.exe",
+             "error": "文件正由另一进程使用，因此该进程无法访问此文件。"},
+            probes=[],
+        )
+        self.assertEqual(diag.category, "collect_failed")
+        self.assertEqual(diag.verdict, "unknown")
+        self.assertIn("读取文件失败", diag.cause)
+        self.assertEqual(diag.confidence, "low")
