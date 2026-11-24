@@ -610,12 +610,20 @@ class _Handler(BaseHTTPRequestHandler):
     def _export(self):
         p = self._payload()
         rep = p.get("report") or {}
+        if not isinstance(rep, dict):
+            self._json({"error": "report 必须是对象"}, 400)
+            return
         fmt = (p.get("fmt") or "md").lower()
         if fmt == "json":
             body = json.dumps(rep, ensure_ascii=False, indent=2)
             ctype, name = "application/json; charset=utf-8", "report.json"
         else:
-            body = render_markdown(rep)
+            try:
+                body = render_markdown(rep)
+            except (KeyError, TypeError, AttributeError) as e:
+                # 这个接口接受客户端传来的 report，结构不对要给 400，而不是 500
+                self._json({"error": f"报告结构不完整：{e}"}, 400)
+                return
             ctype, name = "text/markdown; charset=utf-8", "report.md"
         data = body.encode("utf-8")
         self.send_response(200)

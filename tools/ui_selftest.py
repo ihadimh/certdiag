@@ -155,9 +155,15 @@ def main() -> int:
 
     # 7. 导出
     try:
-        body = {"report": {"file": {"path": "x"}, "diagnosis": {"verdict": "valid", "category": "valid",
-                                                               "cause": "c", "confidence": "high",
-                                                               "advice": [], "evidence": []}},
+        body = {"report": {"file": {"path": "x", "size": 1, "sha256": "X"},
+                           "signature": {"status": "Valid"},
+                           "diagnosis": {"verdict": "valid", "category": "valid",
+                                         "cause": "c", "confidence": "high",
+                                         "advice": [], "evidence": []},
+                           "chain": {"elements": []}, "catalog": {},
+                           "revocation": {"urls": [], "probes": []},
+                           "revocation_check": {}, "offline": True,
+                           "generated_at": "2026-01-01T00:00:00+08:00"},
                 "fmt": "md"}
         st, data, hdrs = jpost(port, "/api/export", body)
         record("POST /api/export", st == 200 and b"attachment" in str(hdrs).encode() or st == 200,
@@ -197,6 +203,13 @@ def main() -> int:
         record("拒绝超大请求体", st == 413, f"HTTP {st}")
     except Exception as e:  # noqa: BLE001
         record("拒绝超大请求体", True, f"连接被关闭：{type(e).__name__}")
+
+    # 11.5 畸形报告导出：结构不对要 400，不能 500
+    try:
+        st, data, _ = jpost(port, "/api/export", {"report": {"diagnosis": None}, "fmt": "md"})
+        record("拒绝畸形导出报告", st == 400, f"HTTP {st}")
+    except Exception as e:  # noqa: BLE001
+        record("拒绝畸形导出报告", False, str(e))
 
     # 12. 并发 8 个请求
     try:
