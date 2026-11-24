@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime
+import os
 import sys
 import time
 from pathlib import Path
@@ -32,9 +33,24 @@ def _expand(paths: list[str]) -> list[Path]:
     for p in paths:
         path = Path(p)
         if path.is_dir():
-            for f in sorted(path.rglob("*")):
-                if f.is_file() and f.suffix.lower() in PE_EXT:
-                    out.append(f)
+            # 不用 Path.rglob：它会跟着目录符号链接 / junction 走，遇到环会死循环。
+            # 用 os.walk + 目录的文件 ID 去重（junction 的 st_ino 与目标相同）。
+            seen: set[tuple[int, int]] = set()
+            for root_dir, dirs, files in os.walk(path, followlinks=False):
+                try:
+                    st = os.stat(root_dir)
+                except OSError:
+                    dirs[:] = []
+                    continue
+                key = (st.st_dev, st.st_ino)
+                if key in seen:
+                    dirs[:] = []
+                    continue
+                seen.add(key)
+                for name in sorted(files):
+                    f = Path(root_dir) / name
+                    if f.suffix.lower() in PE_EXT:
+                        out.append(f)
         elif path.exists():
             out.append(path)
         else:
@@ -450,19 +466,27 @@ def main(argv: list[str] | None = None) -> int:
         # 结构固定成对象：单文件和多文件都返回 {"schema_version", "reports": [...]}。
         # 以前"1 条输出对象、多条输出数组"，做 --only 过滤后类型会变，脚本会炸。
         from . import __version__ as _ver
-        dump_json({
-            "schema_version": 2,
-            "tool": "certdiag",
-            "tool_version": _ver,
-            "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
-            "count": len(shown),
-            "reports": shown,
-        }, args.json)
+        try:
+            dump_json({
+                "schema_version": 2,
+                "tool": "certdiag",
+                "tool_version": _ver,
+                "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+                "count": len(shown),
+                "reports": shown,
+            }, args.json)
+        except OSError as e:
+            print(f"[错误] 无法写入 JSON 报告：{args.json} — {e}", file=sys.stderr)
+            return EXIT_ERROR
         print(f"\nJSON 报告已写入：{args.json}（{len(shown)} 条）")
     if args.md:
-        text = "\n\n".join(render_markdown(r) for r in shown)
-        Path(args.md).parent.mkdir(parents=True, exist_ok=True)
-        Path(args.md).write_text(text, encoding="utf-8")
+        try:
+            text = "\n\n".join(render_markdown(r) for r in shown)
+            Path(args.md).parent.mkdir(parents=True, exist_ok=True)
+            Path(args.md).write_text(text, encoding="utf-8")
+        except OSError as e:
+            print(f"[错误] 无法写入 Markdown 报告：{args.md} — {e}", file=sys.stderr)
+            return EXIT_ERROR
         print(f"Markdown 报告已写入：{args.md}（{len(shown)} 条）")
 
     if failed:

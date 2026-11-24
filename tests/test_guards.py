@@ -217,6 +217,7 @@ class TestFetchMetadata(unittest.TestCase):
             headers = {"Host": "127.0.0.1:8765", "Sec-Fetch-Site": "cross-site"}
             server = type("S", (), {"server_address": ("127.0.0.1", 8765)})()
 
+            _host_allowed = ui._Handler._host_allowed
             _trusted_caller = ui._Handler._trusted_caller
 
         self.assertFalse(H()._trusted_caller())
@@ -228,6 +229,7 @@ class TestFetchMetadata(unittest.TestCase):
             headers = {"Host": "127.0.0.1:8765", "Sec-Fetch-Site": "same-origin"}
             server = type("S", (), {"server_address": ("127.0.0.1", 8765)})()
 
+            _host_allowed = ui._Handler._host_allowed
             _trusted_caller = ui._Handler._trusted_caller
 
         self.assertTrue(H()._trusted_caller())

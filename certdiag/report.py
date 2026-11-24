@@ -170,6 +170,14 @@ def render_markdown(report: dict) -> str:
         lines.append("- 依据：")
         for e in d["evidence"]:
             lines.append(f"  - {e}")
+    if d.get("conflicts"):
+        lines.append("- 冲突：")
+        for c in d["conflicts"]:
+            lines.append(f"  - {c.get('a')} ⟷ {c.get('b')}（{c.get('reason')}）")
+    if d.get("confidence_basis"):
+        lines.append(f"- 置信度依据：{d['confidence_basis']}")
+    if d.get("not_checked"):
+        lines.append("- 未验证：" + "；".join(d["not_checked"]))
     lines.append("")
 
     lines.append("## 二、签名信息")
@@ -216,20 +224,6 @@ def render_markdown(report: dict) -> str:
     lines.append("## 四、目录签名（Catalog）")
     lines.append("")
     cat = report.get("catalog") or {}
-    d0 = report.get("diagnosis") or {}
-    for c in (d0.get("conflicts") or []):
-        out.append(f"冲突：{c.get('a')} ⟷ {c.get('b')}（{c.get('reason')}）")
-    basis = d0.get("confidence_basis")
-    if basis:
-        out.append(f"置信度依据：{basis}")
-    missing = d0.get("not_checked") or []
-    if missing:
-        out.append("未验证：" + "；".join(missing))
-
-    rc = report.get("revocation_check") or {}
-    if rc:
-        from .revoke import label as revoke_label
-        out.append(revoke_label(rc))
     if cat.get("found"):
         lines.append(f"- 覆盖目录：`{cat.get('path')}`")
         lines.append(f"- 哈希算法：{cat.get('hash_alg')}   成员标记：`{(cat.get('member_tag') or '')[:32]}…`")

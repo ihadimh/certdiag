@@ -38,6 +38,10 @@ python -m certdiag "C:\path\to\file.exe" --no-probe
 
 <!-- 你认为应该判成什么，依据是什么 -->
 
+## 你验证过什么
+
+<!-- 跑了什么命令、对比了什么输出、有没有换台机器复核 -->
+
 ## 交叉验证
 
 <!-- 有则更好：sigcheck -a / signtool verify / Get-AuthenticodeSignature 的结果 -->

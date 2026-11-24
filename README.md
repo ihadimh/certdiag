@@ -23,7 +23,7 @@
 
 *▲ 图形界面：填路径或把文件拖进来，直接给分类、置信度与依据*
 
-📌 [能做什么、不能做什么](docs/CAPABILITIES.md) · [维护与验证](docs/MAINTAINING.md) · [设计决策](docs/DECISIONS.md) · [已知问题](docs/KNOWN_ISSUES.md) · [真实路径审计](docs/REAL-PATH-REPORT.md) · [虚拟机验收](docs/vm-test-report.md)
+📌 [能做什么、不能做什么](docs/CAPABILITIES.md) · [维护与验证](docs/MAINTAINING.md) · [设计决策](docs/DECISIONS.md) · [已知问题](docs/KNOWN_ISSUES.md) · [真实路径审计](docs/REAL-PATH-REPORT.md) · [虚拟机验收](docs/vm-test-report.md) · [贡献指南](CONTRIBUTING.md) · [代码审计](docs/AUDIT.md)
 
 📖 想看"为什么签名会误判"的完整故事：[Windows 提示"签名无效"，可能根本不是签名的问题](docs/article-signature-misdiagnosis.md)
 
@@ -369,7 +369,7 @@ certdiag/
 │   ├── report.py     # JSON / Markdown / 终端
 │   ├── ui.py         # 本地 Web 界面（http.server + 单页）
 │   └── cli.py        # 命令行
-├── tests/                # 139 个用例（含 Windows API 集成测试）
+├── tests/                # 144 个用例（含 Windows API 集成测试）
 ├── samples/          # 样本生成脚本（有效 / 篡改）
 ├── docs/             # 截图 + rules.json + 技术文章
 ├── verify.py         # 一键自检
@@ -392,10 +392,10 @@ certdiag/
 
 ```bash
 python -m unittest discover -s tests -v
-# Ran 139 tests ... OK
+# Ran 144 tests ... OK
 
 python tools/ui_selftest.py          # 界面 12 项 HTTP 自检
-python verify.py                     # 139 个测试 + 3 个真实场景
+python verify.py                     # 144 个测试 + 3 个真实场景
 ```
 
 测试固定的不变量：
@@ -643,7 +643,7 @@ python -m certdiag "C:\Program Files\XX" --only invalid --json bad.json
 python verify.py --report env.md
 ```
 
-生成的报告包含 Python 版本、PowerShell 路径与版本、`Get-AuthenticodeSignature` / `Get-FileHash` 是否可用、代理状态、可选依赖情况，以及 139 个测试的结果——**CI 抓到的三个环境差异 bug，这份报告能一次性暴露**。
+生成的报告包含 Python 版本、PowerShell 路径与版本、`Get-AuthenticodeSignature` / `Get-FileHash` 是否可用、代理状态、可选依赖情况，以及 144 个测试的结果——**CI 抓到的三个环境差异 bug，这份报告能一次性暴露**。
 
 ## 配套技能（给 agent 用）
 

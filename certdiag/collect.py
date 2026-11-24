@@ -18,7 +18,7 @@ import tempfile
 import threading
 from pathlib import Path
 
-from .psworker import PowerShellWorker, hidden_kwargs
+from .psworker import PowerShellWorker, hidden_kwargs, script_dir as _script_dir
 
 PS_SCRIPT = r"""
 param([string]$Path, [string]$Out, [string]$Revoke = 'NoCheck', [string]$Offline = 'false')
@@ -157,7 +157,7 @@ def _collect_subprocess(path: str, timeout: int = 60, revoke: str = "NoCheck",
                         offline: bool = False) -> dict:
     _stats["subprocess_calls"] += 1
     ps = _find_powershell()
-    with tempfile.TemporaryDirectory(prefix="certdiag_") as td:
+    with tempfile.TemporaryDirectory(prefix="certdiag_", dir=str(_script_dir())) as td:
         script = Path(td) / "collect.ps1"
         out = Path(td) / "out.json"
         script.write_text(PS_SCRIPT, encoding="utf-8-sig")

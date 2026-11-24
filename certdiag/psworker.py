@@ -219,6 +219,11 @@ def _candidate_dirs() -> list[Path]:
     return cands
 
 
+def script_dir() -> Path:
+    """可写的临时脚本目录（探测得到，见 _candidate_dirs）。"""
+    return _worker_dir()
+
+
 def _worker_dir() -> Path:
     for d in _candidate_dirs():
         try:
@@ -231,6 +236,11 @@ def _worker_dir() -> Path:
         except Exception:  # noqa: BLE001
             continue
     return Path(tempfile.gettempdir())
+
+
+def new_script_path(d: Path) -> str:
+    """在 d 下创建一个唯一的脚本路径（不用 mkstemp，避免 O_EXCL 卡死）。"""
+    return _new_script_path(d)
 
 
 def _new_script_path(d: Path) -> str:

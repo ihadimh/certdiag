@@ -142,7 +142,8 @@ PAGE = r"""<!doctype html>
 <script>
 const $ = s => document.querySelector(s);
 const esc = s => (s ?? '').toString()
-  .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+  .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
+  .replaceAll('"','&quot;').replaceAll("'",'&#39;');
 let MODE = 'single';
 let LAST = null;
 let BATCH = [];
@@ -439,7 +440,15 @@ class _Handler(BaseHTTPRequestHandler):
                     timeout=float(p.get("timeout") or 5.0),
                     force_catalog=bool(p.get("catalog")))
 
+    def _host_allowed(self) -> bool:
+        """Host 必须是本机地址：防 DNS rebinding 把页面读给外部域名。"""
+        host = (self.headers.get("Host") or "").split(":")[0].strip().lower()
+        return host in ("127.0.0.1", "localhost", "[::1]")
+
     def do_GET(self):
+        if not self._host_allowed():
+            self._json({"error": "Host 不在允许范围"}, 403)
+            return
         route = urlsplit(self.path).path
         if route in ("/", "/index.html"):
             body = PAGE.encode("utf-8")
@@ -460,8 +469,7 @@ class _Handler(BaseHTTPRequestHandler):
         防两类问题：DNS rebinding（Host 被换成域名）和跨站发起的 POST。
         服务本身没有 cookie/凭据，但读文件、发探测都不该被外部页面驱动。
         """
-        host = (self.headers.get("Host") or "").split(":")[0].strip().lower()
-        if host not in ("127.0.0.1", "localhost", "[::1]"):
+        if not self._host_allowed():
             return False
         # Sec-Fetch-Site 是浏览器强制发送的，跨站请求为 cross-site / same-site。
         # 它比 Origin 更难伪造（脚本无法设置这个头）。
@@ -561,6 +569,9 @@ class _Handler(BaseHTTPRequestHandler):
 
         query = parse_qs(urlsplit(self.path).query)
         name = unquote(self.headers.get("X-Filename") or "upload.bin")
+        # 只保留 basename：文件名里带 ..\ 或控制字符时，不该原样回显
+        name = Path(name).name or "upload.bin"
+        name = "".join(ch for ch in name if ch.isprintable())
         length = int(self.headers.get("Content-Length") or 0)
         if length <= 0:
             raise ValueError("没有收到文件内容")
@@ -630,7 +641,13 @@ def origin_allowed(origin: str, port: int) -> bool:
         return False
     if (u.hostname or "").lower() not in ("127.0.0.1", "localhost", "::1"):
         return False
-    return u.port in (None, port)
+    try:
+        # u.port 在端口不是数字时会抛 ValueError（例如 :8765.evil.com）
+        origin_port = u.port
+    except ValueError:
+        return False
+    # 不写端口意味着 80，不能当成"任意端口"放行
+    return (origin_port or 80) == port
 
 
 class _Server(ThreadingHTTPServer):

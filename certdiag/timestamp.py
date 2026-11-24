@@ -26,7 +26,7 @@ import tempfile
 MAX_PARSE_BYTES = 512 * 1024 * 1024  # 512 MB
 from pathlib import Path
 
-from .psworker import hidden_kwargs
+from .psworker import hidden_kwargs, new_script_path, script_dir
 
 from .ps_text import TS_SCRIPT as PS_SCRIPT  # 唯一来源：ps_text.py
 
