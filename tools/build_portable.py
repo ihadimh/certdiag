@@ -168,7 +168,7 @@ cd /d "%~dp0"
 
 if not exist "%~dp0runtime\pythonw.exe" goto missing
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut((Join-Path ([Environment]::GetFolderPath('Desktop')) 'certdiag 证书诊断.lnk')); $s.TargetPath = '%~dp0双击启动.cmd'; $s.WorkingDirectory = '%~dp0'; $s.IconLocation = '%~dp0certdiag-seal.ico,0'; $s.Description = 'certdiag 证书诊断'; $s.Save(); Write-Host '' ; Write-Host '  已创建桌面快捷方式：certdiag 证书诊断'"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut((Join-Path ([Environment]::GetFolderPath('Desktop')) 'certdiag 证书诊断.lnk')); $s.TargetPath = '%~dp0runtime\pythonw.exe'; $s.Arguments = '-m certdiag --ui'; $s.WorkingDirectory = '%~dp0'; $s.IconLocation = '%~dp0certdiag-seal.ico,0'; $s.Description = 'certdiag 证书诊断'; $s.Save(); Write-Host '' ; Write-Host '  已创建桌面快捷方式：certdiag 证书诊断'"
 
 echo.
 pause

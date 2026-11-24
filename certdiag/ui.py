@@ -696,14 +696,14 @@ def open_url(url: str) -> str:
         exe = shutil.which(name)
         if exe:
             try:
-                subprocess.Popen([exe, url], close_fds=True)
+                subprocess.Popen([exe, "--new-window", url], close_fds=True)
                 return exe
             except OSError:
                 pass
     for exe in _BROWSERS:
         if os.path.exists(exe):
             try:
-                subprocess.Popen([exe, url], close_fds=True)
+                subprocess.Popen([exe, "--new-window", url], close_fds=True)
                 return exe
             except OSError:
                 pass
