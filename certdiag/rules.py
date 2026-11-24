@@ -101,6 +101,13 @@ RULES: list[dict] = [
     {"id": "unknown", "verdict": "unknown", "title": "无法归因",
      "when": "现有信息不足以判断",
      "action": "带 --json 报告和 verify.py --report 提 issue"},
+    {"id": "collect_failed", "verdict": "unknown", "title": "文件读取失败，无法判断签名",
+     "when": "采集阶段读不到文件（被占用、权限不足、网络盘断开）",
+     "action": "先解决占用/权限问题，再重新诊断"},
+    {"id": "catalog_covers_embedded_invalid", "verdict": "unknown",
+     "title": "嵌入式签名无效，但目录签名覆盖该文件",
+     "when": "同一文件同时有嵌入式签名与目录签名，两者结论相反",
+     "action": "不选边；用 sigcheck -a 与 signtool verify /pa 分别复核，确认文件是否被改动"},
 ]
 
 # 动态分类：hresult:NAME（由 WinVerifyTrust 错误码直接定性）
@@ -122,7 +129,7 @@ def as_json() -> str:
         "rules": RULES,
         "dynamic_prefixes": list(DYNAMIC_PREFIXES),
         "red_lines": RED_LINES,
-    }, ensure_ascii=False, indent=2)
+    }, ensure_ascii=False, indent=2) + "\n"
 
 
 def ids() -> set[str]:

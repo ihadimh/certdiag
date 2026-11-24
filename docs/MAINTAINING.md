@@ -38,7 +38,7 @@
 改完任何东西，跑这三条：
 
 ```powershell
-python -m unittest discover -s tests     # 144 个用例
+python -m unittest discover -s tests     # 184 个用例
 python verify.py                         # 4 个真实场景
 python -m certdiag "C:\Windows\System32\cmd.exe" --no-probe
 ```
@@ -74,6 +74,22 @@ python tools/real_path_audit.py --fast
 python -m certdiag samples\tampered.exe --no-probe   # hresult:TRUST_E_BAD_DIGEST / invalid
 python -m certdiag "不存在的文件"                     # 退出码 3
 ```
+
+## 工具脚本一览
+
+| 脚本 | 用途 | 何时跑 |
+|---|---|---|
+| `tools/check_docs.py` | 文档与代码一致性（9 组） | 每次改文档/规则 |
+| `tools/dump_rules.py` | 从 `certdiag/rules.py` 生成 `docs/rules.json` | 改分类或规则后 |
+| `tools/coverage_probe.py` | 零依赖行覆盖统计 | 加测试后看盲区 |
+| `tools/ui_selftest.py` | 本地 UI 的 13 项 HTTP 自检 | 改 ui.py 后 |
+| `tools/demo.py` | 五个典型场景的一览表（截图/演示用） | 发布前 |
+| `tools/build_corpus.py` | 生成语料（`--limit N` 控制规模） | 改归因规则后 |
+| `tools/build_portable.py` | 打包便携版 | 发布 |
+| `tools/real_path_audit.py` | 真实 PowerShell / 网络路径审计（31 项） | 改采集层后 |
+| `tools/check_skill.py` | 校验配套技能的 SKILL.md 格式 | 改技能仓库后 |
+
+> `real_path_audit.py` 的输出落在 `dist/audit-*.json`（已 gitignore），不要提交。
 
 ## 版本号纪律
 

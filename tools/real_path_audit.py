@@ -185,7 +185,7 @@ def main(fast: bool) -> int:
     record("worker.killed-then-recover", kill_and_recollect, ("status", "stats"))
 
     # ---------- 汇总 ----------
-    out = ROOT / "docs" / f"audit-{time.strftime('%Y%m%d-%H%M')}.json"
+    out = ROOT / "dist" / f"audit-{time.strftime('%Y%m%d-%H%M')}.json"
     out.write_text(json.dumps(RESULTS, ensure_ascii=False, indent=2), encoding="utf-8")
     bad = [r for r in RESULTS if not r.get("ok")]
     odd = [r for r in RESULTS if r.get("ok") and r.get("error")]

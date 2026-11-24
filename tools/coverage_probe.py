@@ -37,8 +37,9 @@ def tracer(frame, event, arg):
 def run_tests():
     loader = unittest.TestLoader()
     suite = loader.discover(str(ROOT / "tests"))
-    runner = unittest.TextTestRunner(stream=open("/dev/null" if sys.platform != "win32" else "NUL", "w"),
-                                     verbosity=0)
+    import io
+
+    runner = unittest.TextTestRunner(stream=io.StringIO(), verbosity=0)
     return runner.run(suite)
 
 

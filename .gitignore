@@ -33,3 +33,6 @@ certdiag_worker_*.ps1
 
 # 运行期临时目录（worker 脚本）
 .certdiag-tmp/
+# 审计脚本的一次性输出
+docs/audit-*.json
+dist/audit-*.json
