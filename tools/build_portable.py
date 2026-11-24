@@ -112,8 +112,39 @@ chcp 65001 >nul
 cd /d "%~dp0"
 
 if not exist "%~dp0runtime\pythonw.exe" goto missing
-start "" "%~dp0runtime\pythonw.exe" -m certdiag --ui
-exit /b
+
+set "URL=http://127.0.0.1:8765/"
+
+rem 已经有实例在跑：直接开浏览器
+powershell -NoProfile -Command "try{ if((Invoke-RestMethod '%URL%api/health' -TimeoutSec 2).ok){exit 0} }catch{}; exit 1" >nul 2>&1
+if not errorlevel 1 goto open
+
+start "" "%~dp0runtime\pythonw.exe" -m certdiag --ui --no-browser
+
+for /l %%i in (1,1,20) do (
+  powershell -NoProfile -Command "try{ if((Invoke-RestMethod '%URL%api/health' -TimeoutSec 1).ok){exit 0} }catch{}; exit 1" >nul 2>&1
+  if not errorlevel 1 goto open
+  timeout /t 1 >nul
+)
+
+echo.
+echo   [错误] 界面没有在 20 秒内启动。
+echo   请把本窗口截图发给作者。
+pause
+exit /b 1
+
+:open
+set "EDGE=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+if exist "%EDGE%" (
+  start "" "%EDGE%" --new-window "%URL%"
+) else (
+  start "" "%URL%"
+)
+echo.
+echo   界面已启动：%URL%
+echo   浏览器没弹出的话，手动打开上面这个地址。
+timeout /t 3 >nul
+exit /b 0
 
 :missing
 echo.
@@ -137,7 +168,7 @@ cd /d "%~dp0"
 
 if not exist "%~dp0runtime\pythonw.exe" goto missing
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut((Join-Path ([Environment]::GetFolderPath('Desktop')) 'certdiag 证书诊断.lnk')); $s.TargetPath = '%~dp0runtime\pythonw.exe'; $s.Arguments = '-m certdiag --ui'; $s.WorkingDirectory = '%~dp0'; $s.IconLocation = '%~dp0certdiag-seal.ico,0'; $s.Description = 'certdiag 证书诊断'; $s.Save(); Write-Host '' ; Write-Host '  已创建桌面快捷方式：certdiag 证书诊断'"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut((Join-Path ([Environment]::GetFolderPath('Desktop')) 'certdiag 证书诊断.lnk')); $s.TargetPath = '%~dp0双击启动.cmd'; $s.WorkingDirectory = '%~dp0'; $s.IconLocation = '%~dp0certdiag-seal.ico,0'; $s.Description = 'certdiag 证书诊断'; $s.Save(); Write-Host '' ; Write-Host '  已创建桌面快捷方式：certdiag 证书诊断'"
 
 echo.
 pause

@@ -66,3 +66,30 @@ class TestServePortInUse(unittest.TestCase):
                 self.assertIsNone(serve(port=port, open_browser=False, block=False))
         finally:
             s.close()
+
+
+class TestOpenUrl(unittest.TestCase):
+    """默认关联坏掉时（比如 Quark 被卸载），要能退回 Edge/Chrome。"""
+
+    def test_prefers_edge(self):
+        from unittest import mock
+
+        from certdiag.ui import open_url
+
+        with mock.patch("shutil.which", return_value=None), \
+             mock.patch("os.path.exists", return_value=True), \
+             mock.patch("subprocess.Popen") as popen:
+            got = open_url("http://127.0.0.1:1/")
+        self.assertTrue(got.endswith("msedge.exe"))
+        self.assertEqual(popen.call_count, 1)
+
+    def test_falls_back_to_default_browser(self):
+        from unittest import mock
+
+        import certdiag.ui as ui
+
+        with mock.patch("shutil.which", return_value=None), \
+             mock.patch("os.path.exists", return_value=False), \
+             mock.patch.object(ui.threading, "Thread") as th:
+            self.assertEqual(ui.open_url("http://127.0.0.1:1/"), "default")
+        th.assert_called_once()

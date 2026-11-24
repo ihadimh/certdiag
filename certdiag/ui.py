@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import threading
 import time
 import webbrowser
@@ -674,6 +675,42 @@ class _Server(ThreadingHTTPServer):
     daemon_threads = True
 
 
+_BROWSERS = (
+    r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+    r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+    r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+    r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+)
+
+
+def open_url(url: str) -> str:
+    """打开浏览器。
+
+    有的机器默认关联已经损坏（例如卸载了 Quark，注册表还指着它），
+    webbrowser.open 会卡住或什么都不做。这里优先直接用 Edge/Chrome，
+    都没有才退回系统关联（放在线程里，避免卡住主进程）。
+    """
+    import shutil
+
+    for name in ("msedge", "chrome"):
+        exe = shutil.which(name)
+        if exe:
+            try:
+                subprocess.Popen([exe, url], close_fds=True)
+                return exe
+            except OSError:
+                pass
+    for exe in _BROWSERS:
+        if os.path.exists(exe):
+            try:
+                subprocess.Popen([exe, url], close_fds=True)
+                return exe
+            except OSError:
+                pass
+    threading.Thread(target=webbrowser.open, args=(url,), daemon=True).start()
+    return "default"
+
+
 def serve(port: int = 8765, open_browser: bool = True, block: bool = True,
           initial_path: str | None = None):
     import errno
@@ -700,7 +737,7 @@ def serve(port: int = 8765, open_browser: bool = True, block: bool = True,
             url = _url(port)
             _say(f"检测到已有实例，直接打开：{url}")
             if open_browser:
-                webbrowser.open(url)
+                open_url(url)
             return None
         raise
     httpd.daemon_threads = True
@@ -708,7 +745,7 @@ def serve(port: int = 8765, open_browser: bool = True, block: bool = True,
     _say(f"certdiag 界面已启动：{url}")
     _say("按 Ctrl+C 退出。")
     if open_browser:
-        threading.Timer(0.6, lambda: webbrowser.open(url)).start()
+        threading.Timer(0.6, lambda: open_url(url)).start()
     if block:
         try:
             httpd.serve_forever()
