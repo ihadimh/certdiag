@@ -380,3 +380,14 @@ class TestPolicyHints(unittest.TestCase):
         tips = _policy_advice(Path("C:/x/a.sys"))
         self.assertEqual(len(tips), 2)
         self.assertTrue(any("/kp" in t for t in tips))
+
+
+class TestChainPrecedence(unittest.TestCase):
+    """系统判定优先：我方链构建失败不能推翻 Valid + S_OK。"""
+
+    def test_os_valid_overrides_partial_chain(self):
+        from certdiag.attrib import DiagInput, diagnose
+
+        d = diagnose(DiagInput(status="Valid", hresult=0, chain_flags=["PartialChain"]))
+        self.assertNotEqual(d.category, "partial_chain")
+        self.assertEqual(d.verdict, "valid")

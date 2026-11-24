@@ -38,7 +38,7 @@
 改完任何东西，跑这三条：
 
 ```powershell
-python -m unittest discover -s tests     # 137 个用例
+python -m unittest discover -s tests     # 139 个用例
 python verify.py                         # 4 个真实场景
 python -m certdiag "C:\Windows\System32\cmd.exe" --no-probe
 ```

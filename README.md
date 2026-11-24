@@ -369,7 +369,7 @@ certdiag/
 │   ├── report.py     # JSON / Markdown / 终端
 │   ├── ui.py         # 本地 Web 界面（http.server + 单页）
 │   └── cli.py        # 命令行
-├── tests/                # 137 个用例（含 Windows API 集成测试）
+├── tests/                # 139 个用例（含 Windows API 集成测试）
 ├── samples/          # 样本生成脚本（有效 / 篡改）
 ├── docs/             # 截图 + rules.json + 技术文章
 ├── verify.py         # 一键自检
@@ -392,10 +392,10 @@ certdiag/
 
 ```bash
 python -m unittest discover -s tests -v
-# Ran 137 tests ... OK
+# Ran 139 tests ... OK
 
 python tools/ui_selftest.py          # 界面 12 项 HTTP 自检
-python verify.py                     # 137 个测试 + 3 个真实场景
+python verify.py                     # 139 个测试 + 3 个真实场景
 ```
 
 测试固定的不变量：
@@ -482,6 +482,9 @@ python -m certdiag app.exe --revoke=auto    # 推荐：先探路再决定要不�
 
 `--no-probe` 与 `--revoke=auto` 同时出现会提示：auto 依赖探测结果判断可达性，
 没有探测会退化为「不查」。想联网查就解除 `--no-probe`。
+
+`--revoke=online` 有独立超时：`--revoke-timeout`（默认 5 秒）。超时不会判成无效，而是写进
+「未验证：吊销状态（吊销检查超时（5 s））」，批量扫描也不会被单个不可达地址拖住。
 
 离线模式除了不跑探测，还会给证书链设置 `DisableCertificateDownloads = $true`——
 否则链构建仍可能通过 AIA 去下载中间证书，"离线"就名不副实。
@@ -640,7 +643,7 @@ python -m certdiag "C:\Program Files\XX" --only invalid --json bad.json
 python verify.py --report env.md
 ```
 
-生成的报告包含 Python 版本、PowerShell 路径与版本、`Get-AuthenticodeSignature` / `Get-FileHash` 是否可用、代理状态、可选依赖情况，以及 137 个测试的结果——**CI 抓到的三个环境差异 bug，这份报告能一次性暴露**。
+生成的报告包含 Python 版本、PowerShell 路径与版本、`Get-AuthenticodeSignature` / `Get-FileHash` 是否可用、代理状态、可选依赖情况，以及 139 个测试的结果——**CI 抓到的三个环境差异 bug，这份报告能一次性暴露**。
 
 ## 配套技能（给 agent 用）
 

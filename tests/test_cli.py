@@ -72,3 +72,31 @@ class TestOnlyFilter(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRevokeTimeout(unittest.TestCase):
+    """--revoke-timeout：超时要写"未检查"，不能拖 30 秒后给个模糊错误。"""
+
+    def test_timeout_reason_is_explicit(self):
+        import time as _time
+        from pathlib import Path as _P
+        from unittest.mock import patch
+
+        import certdiag.cli as cli
+
+        real_collect = cli.collect
+
+        def fake_collect(p, revoke="NoCheck", **kw):
+            if revoke in ("Online", "Offline"):
+                _time.sleep(0.35)
+                return {"path": str(p), "error": "采集超时"}
+            return real_collect(p, revoke=revoke, **kw)
+
+        cmd = _P(r"C:\Windows\System32\cmd.exe")
+        if not cmd.exists():
+            self.skipTest("需要 Windows 系统文件")
+        with patch.object(cli, "collect", fake_collect):
+            rep = cli.diagnose_one(cmd, offline=False, no_probe=True, timeout=5,
+                                   revoke_mode="online", revoke_timeout=0.2)
+        missing = " ".join(rep["diagnosis"]["not_checked"])
+        self.assertIn("吊销检查超时", missing, missing)

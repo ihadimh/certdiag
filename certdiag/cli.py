@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime
 import sys
+import time
 from pathlib import Path
 
 from .attrib import diagnose_from_collect
@@ -102,7 +103,8 @@ def _trace_on(enabled: bool):
 def diagnose_one(path: Path, offline: bool, no_probe: bool, timeout: float,
                  force_catalog: bool = False, force_timestamp: bool = False,
                  revoke_mode: str = "off", allow_private: bool = False,
-                 strict: bool = False, trace: bool = False) -> dict:
+                 strict: bool = False, trace: bool = False,
+                 revoke_timeout: float = 5.0) -> dict:
     emit = _trace_on(trace)
     emit(f"输入：{path}")
 
@@ -163,14 +165,20 @@ def diagnose_one(path: Path, offline: bool, no_probe: bool, timeout: float,
     if effective != "off" and collected.get("status"):
         dotnet_mode = revoke_policy.DOTNET_MODE[effective]
         checked_collected: dict = {}
+        t0 = time.perf_counter()
         try:
-            checked_collected = collect(path, revoke=dotnet_mode, offline=offline)
+            checked_collected = collect(path, revoke=dotnet_mode, offline=offline,
+                                        timeout=revoke_timeout)
         except Exception as e:  # noqa: BLE001
             checked_collected = {"path": str(path), "error": f"吊销复查异常：{e}"}
+        elapsed = time.perf_counter() - t0
 
         if checked_collected.get("error") or not checked_collected.get("status"):
             # 复查没拿到有效结果：不能沿用"已检查"的结论，退回未检查并写明原因
-            reason = str(checked_collected.get("error") or "吊销复查未返回有效状态")
+            if elapsed >= revoke_timeout * 0.9:
+                reason = f"吊销检查超时（{revoke_timeout:g} s）"
+            else:
+                reason = str(checked_collected.get("error") or "吊销复查未返回有效状态")
             effective = "off"
         else:
             collected = checked_collected
@@ -345,6 +353,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--catalog", action="store_true",
                     help="强制检查目录签名（catalog），即使文件已有嵌入式签名")
     ap.add_argument("--timeout", type=float, default=5.0, help="单个网络探测超时秒数（默认 5）")
+    ap.add_argument("--revoke-timeout", type=float, default=5.0,
+                    help="联网吊销检查的超时秒数（默认 5）；超时写「未检查」而不是判无效")
     ap.add_argument("--timestamp", action="store_true",
                     help="强制验证时间戳令牌（默认只在签名者证书过期时验证）")
     ap.add_argument("--allow-private", action="store_true",
@@ -406,7 +416,8 @@ def main(argv: list[str] | None = None) -> int:
                 rep = diagnose_one(f, args.offline, args.no_probe, args.timeout,
                                    args.catalog, args.timestamp, args.revoke,
                                    args.allow_private, args.strict,
-                                   trace=args.trace)
+                                   trace=args.trace,
+                                   revoke_timeout=args.revoke_timeout)
             except Exception as e:  # noqa: BLE001
                 failed.append(str(f))
                 print(f"[!] 诊断失败：{f} — {e}", file=sys.stderr)
