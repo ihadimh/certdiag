@@ -27,6 +27,7 @@
 | 吊销检查（四档） | `off/cache/auto/online`，`auto` 先探路再决定 | `--revoke=auto` 的报告行「吊销：已检查」 |
 | 识别文件损坏 | MZ/PE 头校验、证书表越界、签名后追加数据 | 截断样本 → `corrupt_pe`；尾部追加 → 证据里多一行 |
 | 系统判定优先 | 系统 Valid + S_OK 时，不用我方链构建结果推翻它 | 600 个系统 dll 全判有效，无一误判 invalid |
+| 策略层提示 | 驱动列 `/kp` 命令；所有 PE 把执行策略列为未验证 | 报告出现「内核签名策略（…未执行）」 |
 | 批量与流水线 | 目录扫描、NDJSON 流式、固定 JSON 结构、退出码 | `--json` 输出的顶层键固定 |
 | 暴露信号冲突 | 报告 `evidence` 列出每条证据的来源与分量；`conflicts` 列出矛盾对；`not_checked` 列出未验证项；`confidence_basis` 说明置信度依据 | 构造 Valid + 非零 HRESULT：`conflicts` 应非空，置信度应降为 low |
 | 置信度由证据推导 | 有冲突 → low；采集失败 → 最多 medium；否则保持规则给出的级别（不升级） | `tests/test_evidence.py` |

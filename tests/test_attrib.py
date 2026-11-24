@@ -352,3 +352,31 @@ class TestDualSignature(unittest.TestCase):
     def test_no_embedded_catalog_valid_is_catalog_only(self):
         d = self._diag("Valid", 0x800B0100, self.CAT_OK)
         self.assertEqual(d.category, "catalog_only_trust")
+
+
+class TestPolicyHints(unittest.TestCase):
+    """签名之外：驱动策略与执行策略必须如实列为"未验证"。"""
+
+    def _missing(self, path, pe=True):
+        from certdiag.evidence import not_checked
+
+        return not_checked({"path": path, "pe": {"is_pe": pe}}, timestamp={"has_signature": False},
+                           revocation={"state": "unchecked", "mode": "off"}, catalog={"found": False})
+
+    def test_sys_lists_kernel_policy(self):
+        items = self._missing("C:/Windows/System32/drivers/a.sys")
+        self.assertTrue(any("内核签名策略" in i for i in items))
+
+    def test_exe_lists_execution_policy(self):
+        items = self._missing("C:/x/a.exe")
+        self.assertTrue(any("执行策略" in i for i in items))
+
+    def test_advice_only_for_drivers(self):
+        from pathlib import Path
+
+        from certdiag.cli import _policy_advice
+
+        self.assertEqual(len(_policy_advice(Path("C:/x/a.exe"))), 0)
+        tips = _policy_advice(Path("C:/x/a.sys"))
+        self.assertEqual(len(tips), 2)
+        self.assertTrue(any("/kp" in t for t in tips))

@@ -44,6 +44,23 @@ def _expand(paths: list[str]) -> list[Path]:
 _CAT_SIG_CACHE: dict[str, dict] = {}
 
 
+def _policy_advice(path: Path) -> list[str]:
+    """签名之外、可能导致"签了名却跑不起来"的因素。
+
+    不做策略解析（那会引入 Windows SDK 依赖），只给可执行的下一步。
+    只对驱动给提示：普通 exe 的"执行策略未检查"已经写进 not_checked，
+    每个文件都再劝一遍只会让报告变吵。
+    """
+    if not str(path).lower().endswith(".sys"):
+        return []
+    return [
+        "驱动加载还受内核签名策略约束（2026 年起交叉签名 CA 不再默认受信）："
+        "用 signtool verify /v /kp 检查",
+        "若驱动加载失败，查看 CodeIntegrity 事件日志"
+        "（Microsoft-Windows-CodeIntegrity/Operational，事件 3033/3077）",
+    ]
+
+
 def _catalog_info(path: Path) -> dict:
     """查找覆盖该文件的 .cat，并验证 .cat 自身的签名。
 
@@ -157,6 +174,10 @@ def diagnose_one(path: Path, offline: bool, no_probe: bool, timeout: float,
             effective = "off"
         else:
             collected = checked_collected
+            # 复查会重建 collected，把之前算好的结构信息补回去，
+            # 否则 not_checked / 策略提示会看不到 PE 信息
+            if pe_info:
+                collected["pe"] = pe_info
             collected["hresult"] = wv.get("hresult")
             collected["hresult_name"] = wv.get("name")
             collected["hresult_desc"] = wv.get("desc")
@@ -230,6 +251,9 @@ def diagnose_one(path: Path, offline: bool, no_probe: bool, timeout: float,
     # 严格模式：证据不足就不下结论（invalid 是强证据，不受影响）
     if strict:
         evidence_layer.apply_strict(diag, missing)
+
+    # 策略层提示：签名有效不代表被允许加载/执行（issue #8）
+    diag.advice = list(diag.advice or []) + _policy_advice(path)
     return build_report(collected, probes, diag.to_dict(), offline,
                         catalog=catalog, timestamp=ts)
 

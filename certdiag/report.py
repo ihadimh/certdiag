@@ -322,7 +322,8 @@ def render_console(report: dict) -> str:
             tail = f"，{len(probes) - ok} 个地址不可达（见报告）"
         out.append(f"吊销查询：{ok}/{len(probes)} 个地址可达" + tail)
     if d.get("advice"):
-        out.append("建议：" + "；".join(d["advice"][:2]))
+        # 不截断：策略层提示（驱动 /kp、WDAC）排在后面，截掉就等于没说
+        out.append("建议：" + "；".join(d["advice"]))
     return "\n".join(out)
 
 

@@ -181,6 +181,13 @@ def not_checked(collected: dict, *, timestamp: dict | None = None,
         out.append("证书链 AIA 下载（当前运行时无法禁止）")
     if collected.get("status") is None:
         out.append("全部签名信息（采集失败）")
+
+    # 策略层：签名有效不等于被允许执行。这两项本工具不解析，必须如实列出。
+    p = str(collected.get("path") or "").lower()
+    if p.endswith(".sys"):
+        out.append("内核签名策略（signtool verify /v /kp 未执行）")
+    if (collected.get("pe") or {}).get("is_pe"):
+        out.append("执行策略（AppLocker/WDAC 是否允许运行）")
     return out
 
 

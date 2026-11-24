@@ -369,7 +369,7 @@ certdiag/
 │   ├── report.py     # JSON / Markdown / 终端
 │   ├── ui.py         # 本地 Web 界面（http.server + 单页）
 │   └── cli.py        # 命令行
-├── tests/                # 134 个用例（含 Windows API 集成测试）
+├── tests/                # 137 个用例（含 Windows API 集成测试）
 ├── samples/          # 样本生成脚本（有效 / 篡改）
 ├── docs/             # 截图 + rules.json + 技术文章
 ├── verify.py         # 一键自检
@@ -392,10 +392,10 @@ certdiag/
 
 ```bash
 python -m unittest discover -s tests -v
-# Ran 134 tests ... OK
+# Ran 137 tests ... OK
 
 python tools/ui_selftest.py          # 界面 12 项 HTTP 自检
-python verify.py                     # 134 个测试 + 3 个真实场景
+python verify.py                     # 137 个测试 + 3 个真实场景
 ```
 
 测试固定的不变量：
@@ -569,6 +569,24 @@ python -m certdiag app.exe --strict --revoke=auto
 
 强证据（哈希不匹配、显式不信任、已吊销）不受影响——那些是确定结论。
 
+## 签名有效 ≠ 能运行
+
+签名只回答"文件是谁签的、有没有被改"，不回答"系统允不允许它跑"。两件常见的事：
+
+| 场景 | 签名状态 | 真正原因 | 怎么查 |
+|---|---|---|---|
+| 驱动加载失败（代码 52） | 可能有效 | 不满足内核签名策略（2026 年起交叉签名 CA 不再默认受信） | `signtool verify /v /kp 文件.sys` |
+| 程序被拦 | 有效 | AppLocker / WDAC / SmartScreen 策略拒绝 | CodeIntegrity 事件日志（3033/3077） |
+
+所以报告里会把这些列进「未验证」：
+
+```
+未验证：…；内核签名策略（signtool verify /v /kp 未执行）；执行策略（AppLocker/WDAC 是否允许运行）
+```
+
+对 `.sys` 还会给出具体命令。**本工具不解析策略文件**——那需要 Windows SDK 或
+WDAC 的 XML 解析，超出"零依赖只读诊断"的范围。
+
 ## 谁说了算：系统判定优先
 
 如果 Windows 说「Valid」且 `WinVerifyTrust` 返回 `S_OK`，本工具**不会**用自己的链构建结果推翻它。
@@ -622,7 +640,7 @@ python -m certdiag "C:\Program Files\XX" --only invalid --json bad.json
 python verify.py --report env.md
 ```
 
-生成的报告包含 Python 版本、PowerShell 路径与版本、`Get-AuthenticodeSignature` / `Get-FileHash` 是否可用、代理状态、可选依赖情况，以及 134 个测试的结果——**CI 抓到的三个环境差异 bug，这份报告能一次性暴露**。
+生成的报告包含 Python 版本、PowerShell 路径与版本、`Get-AuthenticodeSignature` / `Get-FileHash` 是否可用、代理状态、可选依赖情况，以及 137 个测试的结果——**CI 抓到的三个环境差异 bug，这份报告能一次性暴露**。
 
 ## 配套技能（给 agent 用）
 
