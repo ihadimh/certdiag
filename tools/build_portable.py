@@ -337,6 +337,18 @@ def main() -> int:
     (out / "使用说明.txt").write_text(USAGE_TXT.replace("{ver}", ver), encoding="utf-8-sig")
     print("[+] 使用说明.txt")
 
+    # 打包前把完整性级别设为 Medium。
+    # 某些环境（下载解压 / 沙箱构建）会给文件打上 Low 标签，进程会继承成低权限：
+    # 写不了 %LOCALAPPDATA%，Edge/Chrome 创建不了配置目录，浏览器直接退出。
+    try:
+        import subprocess
+
+        subprocess.run(["icacls", str(out), "/setintegritylevel", "Medium", "/T", "/C", "/Q"],
+                       check=False, capture_output=True)
+        print("[+] 完整性级别：Medium")
+    except OSError:
+        pass
+
     zpkg = DIST / f"{name}.zip"
     if zpkg.exists():
         zpkg.unlink()
