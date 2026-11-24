@@ -80,3 +80,67 @@ class TestProbeLocal(unittest.TestCase):
     def test_dns_failure(self):
         r = probe_url("http://nonexistent.invalid/x", timeout=2, allow_private=True)
         self.assertIn(r.category, ("dns_fail", "blocked", "http_error", "unknown"))
+
+
+class TestProbeProxyFallbacks(unittest.TestCase):
+    """直连失败 + 代理可达时，不能判"不可达"。这些分支靠 mock 触发。"""
+
+    def _proxy(self):
+        from certdiag.proxy import ProxyInfo
+        return ProxyInfo(True, "http://127.0.0.1:9", "", "", "env")
+
+    def test_dns_fail_via_proxy(self):
+        from unittest import mock
+
+        from certdiag.probe import probe_url
+
+        def via_proxy(url, timeout, r):
+            r.category, r.detail = "ok", "代理可达"
+            return True
+
+        with mock.patch("certdiag.proxy.detect", return_value=self._proxy()), \
+             mock.patch("certdiag.probe._resolve", return_value=("fail", [], "dns")), \
+             mock.patch("certdiag.probe._http_via_proxy", side_effect=via_proxy):
+            r = probe_url("http://example.com/a.crl", timeout=1)
+        self.assertEqual(r.category, "ok")
+
+    def test_tcp_fail_via_proxy(self):
+        from unittest import mock
+
+        from certdiag.probe import probe_url
+
+        def via_proxy(url, timeout, r):
+            r.category, r.detail = "ok", "代理可达"
+            return True
+
+        with mock.patch("certdiag.proxy.detect", return_value=self._proxy()), \
+             mock.patch("certdiag.probe._resolve", return_value=("ok", ["1.2.3.4"], "")), \
+             mock.patch("certdiag.probe._tcp", return_value=("timeout", "tcp timeout")), \
+             mock.patch("certdiag.probe._http_via_proxy", side_effect=via_proxy):
+            r = probe_url("http://example.com/a.crl", timeout=1)
+        self.assertEqual(r.category, "ok")
+
+    def test_tls_error(self):
+        from unittest import mock
+
+        from certdiag.probe import probe_url
+
+        with mock.patch("certdiag.proxy.detect", return_value=type("P", (), {"enabled": False})()), \
+             mock.patch("certdiag.probe._resolve", return_value=("ok", ["1.2.3.4"], "")), \
+             mock.patch("certdiag.probe._tcp", return_value=("ok", "")), \
+             mock.patch("certdiag.probe._http", return_value=("", "error", "TLS 握手失败")):
+            r = probe_url("http://example.com/a.crl", timeout=1)
+        self.assertEqual(r.category, "tls_error")
+
+    def test_ocsp_inconclusive(self):
+        from unittest import mock
+
+        from certdiag.probe import probe_url
+
+        with mock.patch("certdiag.proxy.detect", return_value=type("P", (), {"enabled": False})()), \
+             mock.patch("certdiag.probe._resolve", return_value=("ok", ["1.2.3.4"], "")), \
+             mock.patch("certdiag.probe._tcp", return_value=("ok", "")), \
+             mock.patch("certdiag.probe._http", return_value=("", "skip", "GET 不支持")):
+            r = probe_url("http://ocsp.example.com/x", timeout=1)
+        self.assertEqual(r.kind, "ocsp")
+        self.assertEqual(r.category, "inconclusive")

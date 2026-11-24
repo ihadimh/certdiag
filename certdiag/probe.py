@@ -148,7 +148,7 @@ def _http(url: str, timeout: float) -> tuple[str, str, str]:
             return "", "skip", "HTTP 请求超时"
         except Exception as e:  # noqa: BLE001
             return "", "skip", f"HTTP 异常：{e}"
-    return "", "skip", "不可达"
+    # 不会执行到这里：HEAD/GET 的每个分支都会 return
 
 
 def guess_kind(url: str) -> str:

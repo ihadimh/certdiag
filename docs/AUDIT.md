@@ -39,7 +39,7 @@
 ## 四、怎么复现这次审计
 
 ```powershell
-python -m unittest discover -s tests        # 270 个用例
+python -m unittest discover -s tests        # 274 个用例
 python tools/check_docs.py -v               # 文档一致性 9 组
 python verify.py                            # 真实场景自检
 ```
@@ -62,7 +62,7 @@ python -m certdiag C:\Windows\System32\cmd.exe --json C:\Windows\System32\x.json
 补了 CLI 入口、控制台渲染、本地探测的测试后：
 
 ```
-总行覆盖：2456/2694 = 91.2%（270 个用例）
+总行覆盖：2465/2693 = 91.5%（274 个用例）
 ```
 
 仍未覆盖的主要是：超时/代理分支、需要真实吊销样本的分支、UI 的 serve 生命周期。
