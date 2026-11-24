@@ -41,12 +41,23 @@ def _expand(paths: list[str]) -> list[Path]:
     return out
 
 
+_CAT_SIG_CACHE: dict[str, dict] = {}
+
+
 def _catalog_info(path: Path) -> dict:
-    """查找覆盖该文件的 .cat，并验证 .cat 自身的签名。"""
+    """查找覆盖该文件的 .cat，并验证 .cat 自身的签名。
+
+    .cat 的签名验证要跑一次 PowerShell 采集（约 30~50 ms），而一个 .cat
+    通常覆盖成百上千个文件。按 .cat 路径缓存，批量扫描才不会被这一步拖慢。
+    """
     cat = find_catalog(path)
-    if not cat.get("catalog_path"):
+    cat_path = cat.get("catalog_path")
+    if not cat_path:
         return {"found": False, "path": None, "error": cat.get("error")}
-    cat_sig = collect(cat["catalog_path"])
+    cat_sig = _CAT_SIG_CACHE.get(cat_path)
+    if cat_sig is None:
+        cat_sig = collect(cat_path)
+        _CAT_SIG_CACHE[cat_path] = cat_sig
     signer = (cat_sig.get("signer") or {}).get("subject")
     return {
         "found": True,
@@ -113,9 +124,13 @@ def diagnose_one(path: Path, offline: bool, no_probe: bool, timeout: float,
              f"error={ts.get('error')}")
 
     catalog: dict = {}
+    # 除了"没有嵌入式签名"，文件同时带嵌入式签名时也要查目录签名：
+    # Windows 的系统组件常常两者都有，只报嵌入式签名会遮蔽目录签名这条证据。
+    # 目录查找约 1~7 ms，批量扫描可接受。
     if (force_catalog
             or collected.get("status") in ("NotSigned", "NotSupportedFileFormat")
-            or collected.get("hresult") == 0x800B0100):
+            or collected.get("hresult") in (0x800B0100, 0)
+            or (pe_info or {}).get("is_pe") and collected.get("status") == "Valid"):
         catalog = _catalog_info(path)
 
     emit(f"目录签名：found={catalog.get('found')} path={catalog.get('path')}")
@@ -180,6 +195,24 @@ def diagnose_one(path: Path, offline: bool, no_probe: bool, timeout: float,
     signals = evidence_layer.collect_signals(
         collected, catalog=catalog, timestamp=ts, revocation=revocation)
     conflicts = evidence_layer.find_conflicts(signals, collected, diag.category)
+
+    # 双签名仲裁：文件同时带嵌入式签名和目录签名时，把两条证据都摆出来。
+    # 只有两边结论相反才算冲突；都对或都错不算（否则会把正常的系统文件降成 low）。
+    cat = catalog or {}
+    hr = collected.get("hresult")
+    embedded_exists = hr not in (None, 0x800B0100)
+    embedded_ok = hr == 0
+    catalog_ok = cat.get("signature_status") == "Valid"
+    disagree = cat.get("found") and (
+        (embedded_ok and not catalog_ok) or
+        (embedded_exists and not embedded_ok and catalog_ok)
+    )
+    if disagree:
+        conflicts.append({
+            "a": f"嵌入式签名：0x{int(hr):08X} {collected.get('hresult_name') or ''}".strip(),
+            "b": f"目录签名：{cat.get('signature_status') or '未知'}（{cat.get('path')}）",
+            "reason": "同一文件存在两条签名来源，结论相反——本工具不替你选边",
+        })
     missing = evidence_layer.not_checked(collected, timestamp=ts,
                                        revocation=revocation, catalog=catalog)
     confidence, basis = evidence_layer.adjust_confidence(diag.confidence, conflicts, missing)

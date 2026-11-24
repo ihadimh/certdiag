@@ -67,7 +67,7 @@ OCSP 只接受 POST，GET/HEAD 失败会被判为 `inconclusive`，`auto` 可能
 ## P3
 
 ### 8. 测试覆盖仍偏重归因函数
-127 个用例里只有 5 个真调 Windows API（WinVerifyTrust / Catalog / 时间戳）。
+134 个用例里只有 5 个真调 Windows API（WinVerifyTrust / Catalog / 时间戳）。
 网络探测、代理、批量 UI 仍无自动化测试。
 
 ### 9. 只在 Windows 11 22621 上验证过
@@ -97,3 +97,23 @@ OCSP 只接受 POST，GET/HEAD 失败会被判为 `inconclusive`，`auto` 可能
 | 时间戳过度自信（high → medium） | v1.3.0 |
 | 确定失败被"网络问题"盖住（规则顺序） | v1.3.0 |
 | 报告版本号硬编码 0.1.0 | v1.3.0 |
+### 15. `TRUST_E_MALFORMED_SIGNATURE` 可能来自未公开的启发式检查
+Windows 对某些"PE 标记不规范"的签名会返回 `0x80096011`，即使签名由标准工具签出。
+相关机制（WDAC 的 relaxed PE marker check / `SpcRelaxedPEMarkerCheck`）没有公开文档。
+
+**本工具的处理**：判 `malformed_signature` / **unknown** / medium，**不判 invalid**，
+并建议用 `signtool verify /pa /v` 复核。不要仅凭这个码认定文件被篡改。
+
+### 16. 双签名（嵌入式 + 目录）冲突时不选边
+系统组件常常同时有嵌入式签名和目录签名。两者结论相反时（例如嵌入式签名不受信、
+但文件哈希命中 Microsoft 的 .cat），本工具判 `catalog_covers_embedded_invalid` /
+**unknown** / low，并把两条证据都列出来。
+
+不自动"采信目录签名"的原因：目录签名是否可信取决于 .cat 的签发者，而 .cat 的
+信任判断仍然依赖本机根证书库；把优先级写死会把另一类误判固化进代码。
+
+### 17. 驱动策略与执行控制策略未覆盖
+- 驱动：证书链有效 ≠ 满足内核签名策略（2026 年起交叉签名 CA 不再默认受信）。
+  本工具不调用 `signtool verify /kp`，报告里会提示"签名有效不等于能加载"。
+- WDAC / AppLocker：签名有效 ≠ 允许执行。本工具只提示查看 CodeIntegrity 事件日志。
+- SBOM/VEX：属于提交前置条件，不在运行时诊断范围内。

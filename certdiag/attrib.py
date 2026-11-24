@@ -131,6 +131,21 @@ def diagnose(inp: DiagInput) -> Diagnosis:
     if bad:
         evidence.append(f"吊销查询失败：{_hosts(bad)}")
 
+    cav = inp.catalog or {}
+    catalog_found = bool(cav.get("found"))
+    catalog_ok = cav.get("signature_status") == "Valid"
+    embedded_exists = inp.hresult not in (None, 0x800B0100)
+    embedded_ok = inp.hresult == 0
+
+    # 两个签名来源都存在时，把目录签名也写进证据（否则会被嵌入式签名遮蔽）
+    if catalog_found and embedded_ok:
+        evidence.append(f"同时被目录签名覆盖：{cav.get('path')}（{cav.get('signature_status') or '未知'}）")
+
+    # 0.1) 嵌入式签名无效，但目录签名有效 —— 两条证据打架，不静默选边
+    #      背景：系统组件常常同时带嵌入式签名与目录签名；只看嵌入式（Sigcheck 的做法）
+    #      会得出"签名无效"，而目录签名仍然覆盖这个文件的哈希。
+    #      放在"已吊销"之后：吊销是对签名者的强否定，优先保留。
+
     # -2) PE 结构本身有问题：这比"有没有签名"更靠前
     #     Get-AuthenticodeSignature 对损坏/截断的 exe 只会给 UnknownError 或 NotSigned，
     #     直接按状态归因会把"文件坏了"说成"这个类型没有签名概念"。
@@ -165,6 +180,23 @@ def diagnose(inp: DiagInput) -> Diagnosis:
             advice=["不要运行该文件；从官方渠道重新获取",
                     "若确认是误吊销，联系签发机构核实"],
             evidence=evidence + ["吊销检查：已吊销"])
+
+    # 0.1) 嵌入式签名无效，但目录签名有效 —— 两条证据打架，不静默选边
+    #      背景：系统组件常常同时带嵌入式签名与目录签名；只看嵌入式（Sigcheck 的做法）
+    #      会得出"签名无效"，而目录签名仍然覆盖这个文件的哈希。
+    if catalog_found and catalog_ok and embedded_exists and not embedded_ok:
+        hr = inp.hresult
+        hname = HRESULT_MAP.get(hr, ("UNKNOWN", ""))[0] if hr is not None else "UNKNOWN"
+        return Diagnosis(
+            category="catalog_covers_embedded_invalid", verdict=VERDICT_UNKNOWN,
+            cause=(f"两条签名来源结论不同：嵌入式签名无效（0x{int(hr):08X} {hname}），"
+                   f"但目录签名覆盖该文件且 .cat 签名有效"),
+            confidence="low",
+            advice=["用 sigcheck -a 对照（它优先看嵌入式签名，可能给出相反结论）",
+                    "用 signtool verify /pa 与 Get-AuthenticodeSignature 分别复核",
+                    "系统文件不应带无效的嵌入式签名；确认是否被第三方改动过"],
+            evidence=evidence + [f"目录签名状态：{cav.get('signature_status')}",
+                                 f"目录文件：{cav.get('path')}"])
 
     # 0) 只有这三种码能单独定性；其余交给"状态 + 链 + 探测"交叉判断
     #    （WinVerifyTrust 只看嵌入式签名，对目录签名文件会返回 NOSIGNATURE，

@@ -317,3 +317,38 @@ class TestCollectFailed(unittest.TestCase):
         self.assertEqual(diag.verdict, "unknown")
         self.assertIn("读取文件失败", diag.cause)
         self.assertEqual(diag.confidence, "low")
+
+
+class TestDualSignature(unittest.TestCase):
+    """嵌入式签名与目录签名同时存在时的仲裁。"""
+
+    CAT_OK = {"found": True, "signature_status": "Valid", "path": "C:/x/a.cat"}
+    CAT_BAD = {"found": True, "signature_status": "HashMismatch", "path": "C:/x/a.cat"}
+
+    def _diag(self, status, hresult, catalog):
+        from certdiag.attrib import diagnose_from_collect
+
+        return diagnose_from_collect(
+            {"path": "C:/x/a.exe", "status": status, "hresult": hresult},
+            probes=[], catalog=catalog)
+
+    def test_embedded_invalid_but_catalog_valid_is_unknown(self):
+        d = self._diag("Valid", 0x800B0109, self.CAT_OK)
+        self.assertEqual(d.category, "catalog_covers_embedded_invalid")
+        self.assertEqual(d.verdict, "unknown")
+        self.assertEqual(d.confidence, "low")
+        self.assertTrue(any("目录签名状态" in e for e in d.evidence))
+
+    def test_both_valid_records_catalog_evidence(self):
+        d = self._diag("Valid", 0, self.CAT_OK)
+        self.assertEqual(d.verdict, "valid")
+        self.assertTrue(any("同时被目录签名覆盖" in e for e in d.evidence))
+
+    def test_embedded_invalid_catalog_invalid_stays_invalid(self):
+        d = self._diag("Valid", 0x800B0109, self.CAT_BAD)
+        self.assertEqual(d.category, "untrusted_root")
+        self.assertEqual(d.verdict, "invalid")
+
+    def test_no_embedded_catalog_valid_is_catalog_only(self):
+        d = self._diag("Valid", 0x800B0100, self.CAT_OK)
+        self.assertEqual(d.category, "catalog_only_trust")

@@ -221,12 +221,14 @@ Markdown 报告包含：结论、签名信息（含 WinVerifyTrust 的精确 HRE
 
 | 场景（`--no-probe`，本机实测） | 耗时 |
 |---|---|
-| 300 个系统 dll | **11.3 s**（38 ms/文件） |
-| 600 个系统 dll | **25.8 s**（43 ms/文件） |
+| 300 个系统 dll | **10.5 s**（35 ms/文件） |
+| 600 个系统 dll | **27.9 s**（47 ms/文件） |
 | 单文件（worker 已起） | ~20 ms |
 
 > v1.9.0 把时间戳解析搬进常驻 worker，并把"整文件读入"改成"只读 PE 头 + 证书表"：
-> 单个文件的令牌校验从 250~600 ms 降到 1~4 ms，300 个文件的批量从 77.6 s 降到 11.3 s（6.9×）。
+> 单个文件的令牌校验从 250~600 ms 降到 1~4 ms，300 个文件的批量从 77.6 s 降到 10.5 s（7.4×）。
+> v2.1.9 起，带嵌入式签名的文件也会查目录签名（用于双签名证据），
+> `.cat` 的签名验证按路径缓存，因此批量耗时基本不变。
 
 > 测量条件：Windows 11 22621，`C:\Windows\System32` 下按文件名排序取 300 / 600 个 dll，
 > `--no-probe`，缓存已热。**该数字不能直接套到单文件场景**——单文件主要是进程启动开销（约 2 s），
@@ -367,7 +369,7 @@ certdiag/
 │   ├── report.py     # JSON / Markdown / 终端
 │   ├── ui.py         # 本地 Web 界面（http.server + 单页）
 │   └── cli.py        # 命令行
-├── tests/                # 127 个用例（含 Windows API 集成测试）
+├── tests/                # 134 个用例（含 Windows API 集成测试）
 ├── samples/          # 样本生成脚本（有效 / 篡改）
 ├── docs/             # 截图 + rules.json + 技术文章
 ├── verify.py         # 一键自检
@@ -390,10 +392,10 @@ certdiag/
 
 ```bash
 python -m unittest discover -s tests -v
-# Ran 127 tests ... OK
+# Ran 134 tests ... OK
 
 python tools/ui_selftest.py          # 界面 12 项 HTTP 自检
-python verify.py                     # 127 个测试 + 3 个真实场景
+python verify.py                     # 134 个测试 + 3 个真实场景
 ```
 
 测试固定的不变量：
@@ -620,7 +622,7 @@ python -m certdiag "C:\Program Files\XX" --only invalid --json bad.json
 python verify.py --report env.md
 ```
 
-生成的报告包含 Python 版本、PowerShell 路径与版本、`Get-AuthenticodeSignature` / `Get-FileHash` 是否可用、代理状态、可选依赖情况，以及 127 个测试的结果——**CI 抓到的三个环境差异 bug，这份报告能一次性暴露**。
+生成的报告包含 Python 版本、PowerShell 路径与版本、`Get-AuthenticodeSignature` / `Get-FileHash` 是否可用、代理状态、可选依赖情况，以及 134 个测试的结果——**CI 抓到的三个环境差异 bug，这份报告能一次性暴露**。
 
 ## 配套技能（给 agent 用）
 

@@ -65,3 +65,14 @@ Windows PowerShell 5.1（.NET Framework 4.8）**没有这个属性**，因此在
 ## 报告问题
 
 发现安全相关问题请开 issue：https://github.com/ihadimh/certdiag/issues
+## 信任边界：它不是最终仲裁者
+
+certdiag 的所有判断都建立在**操作系统提供的信任数据**上：系统根证书库、
+`WinVerifyTrust`、`.cat` 目录、PowerShell。因此：
+
+- 如果系统本身被篡改（替换根证书、patch `crypt32.dll`、改 PowerShell 模块），
+  本工具同样会被骗——它没有独立的信任根。
+- 它不做"判决"，只做"归因 + 证据"：两边不一致时给 `unknown`，不替你选边。
+- 报告里的颜色和结论可以截图转发，但**真正可核查的是"依据"部分**。
+
+需要独立验证时：换一台机器、比对官方公布的哈希、用 `signtool` 交叉复核。
