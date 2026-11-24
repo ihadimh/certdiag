@@ -78,10 +78,10 @@ class TestOpenUrl(unittest.TestCase):
 
         with mock.patch("shutil.which", return_value=None), \
              mock.patch("os.path.exists", return_value=True), \
-             mock.patch("subprocess.Popen") as popen:
+             mock.patch("certdiag.ui._launch_browser", return_value=True) as launch:
             got = open_url("http://127.0.0.1:1/")
         self.assertTrue(got.endswith("msedge.exe"))
-        self.assertEqual(popen.call_count, 1)
+        self.assertEqual(launch.call_count, 1)
 
     def test_falls_back_to_default_browser(self):
         from unittest import mock
@@ -119,3 +119,27 @@ class TestOpenNotify(unittest.TestCase):
              mock.patch.object(ui, "_notify_url") as box:
             ui._open_and_notify("http://127.0.0.1:1/")
         box.assert_not_called()
+
+
+class TestLaunchBrowserFallback(unittest.TestCase):
+    def test_popen_failure_uses_wmi(self):
+        from unittest import mock
+
+        import certdiag.ui as ui
+
+        fake = mock.Mock()
+        fake.wait.return_value = 21
+        with mock.patch.object(ui.subprocess, "Popen", return_value=fake), \
+             mock.patch.object(ui, "_spawn_via_wmi", return_value=True) as wmi:
+            self.assertTrue(ui._launch_browser("edge.exe", "http://x/"))
+        wmi.assert_called_once()
+
+    def test_popen_success(self):
+        from unittest import mock
+
+        import certdiag.ui as ui
+
+        fake = mock.Mock()
+        fake.wait.side_effect = ui.subprocess.TimeoutExpired("x", 1)
+        with mock.patch.object(ui.subprocess, "Popen", return_value=fake):
+            self.assertTrue(ui._launch_browser("edge.exe", "http://x/"))

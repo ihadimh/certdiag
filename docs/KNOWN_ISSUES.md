@@ -67,7 +67,7 @@ OCSP 只接受 POST，GET/HEAD 失败会被判为 `inconclusive`，`auto` 可能
 ## P3
 
 ### 8. 测试覆盖仍偏重归因函数
-274 个用例里只有 5 个真调 Windows API（WinVerifyTrust / Catalog / 时间戳）。
+280 个用例里只有 5 个真调 Windows API（WinVerifyTrust / Catalog / 时间戳）。
 网络探测、代理、批量 UI 仍无自动化测试。
 
 ### 9. 只在 Windows 11 22621 上验证过

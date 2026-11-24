@@ -695,21 +695,46 @@ def open_url(url: str) -> str:
 
     for name in ("msedge", "chrome"):
         exe = shutil.which(name)
-        if exe:
-            try:
-                subprocess.Popen([exe, "--new-window", url], close_fds=True)
-                return exe
-            except OSError:
-                pass
+        if exe and _launch_browser(exe, url):
+            return exe
     for exe in _BROWSERS:
-        if os.path.exists(exe):
-            try:
-                subprocess.Popen([exe, "--new-window", url], close_fds=True)
-                return exe
-            except OSError:
-                pass
+        if os.path.exists(exe) and _launch_browser(exe, url):
+            return exe
     threading.Thread(target=webbrowser.open, args=(url,), daemon=True).start()
     return "default"
+
+
+def _launch_browser(exe: str, url: str) -> bool:
+    """先直接起进程；被作业限制拦下（退出码非 0）时改用 WMI 启动。
+
+    实测：某些环境里 Python 子进程无法启动 Edge（进程立刻退出，码 21），
+    但 Win32_Process.Create 由 WMI 服务创建进程，不受这个限制。
+    """
+    try:
+        p = subprocess.Popen([exe, "--new-window", url], close_fds=True)
+    except OSError:
+        return False
+    try:
+        code = p.wait(timeout=1.5)
+    except subprocess.TimeoutExpired:
+        return True          # 浏览器还活着，说明起来了
+    if code == 0:
+        return True          # 交给已有实例后正常退出
+    return _spawn_via_wmi(exe, url)
+
+
+def _spawn_via_wmi(exe: str, url: str) -> bool:
+    cmdline = f'"{exe}" --new-window "{url}"'
+    ps = ("Invoke-CimMethod -ClassName Win32_Process -MethodName Create "
+          f"-Arguments @{{CommandLine='{cmdline}'}} | Out-Null")
+    try:
+        subprocess.run(
+            ["powershell", "-NoProfile", "-WindowStyle", "Hidden", "-Command", ps],
+            capture_output=True, timeout=20,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        return True
+    except Exception:  # noqa: BLE001
+        return False
 
 
 def _browser_running() -> bool:
