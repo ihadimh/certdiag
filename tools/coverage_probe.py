@@ -10,6 +10,7 @@
 """
 import dis
 import sys
+import threading
 import types
 import unittest
 from pathlib import Path
@@ -27,10 +28,12 @@ def tracer(frame, event, arg):
     fn = frame.f_code.co_filename
     if fn not in FILES:
         return None
-    if event == "line":
-        hits[fn].add(frame.f_lineno)
-    elif event == "call":
-        calls[fn].add(frame.f_code.co_name)
+    if fn in FILES:
+        if event == "line":
+            hits[fn].add(frame.f_lineno)
+        elif event == "call":
+            calls[fn].add(frame.f_code.co_name)
+    # 必须返回 tracer：返回 None 会让新线程的跟踪停在线程引导帧上
     return tracer
 
 
@@ -44,7 +47,9 @@ def run_tests():
 
 
 sys.settrace(tracer)
+threading.settrace(tracer)   # UI 的 handler 跑在线程里
 res = run_tests()
+threading.settrace(None)
 sys.settrace(None)
 print(f"测试：run={res.testsRun} failures={len(res.failures)} errors={len(res.errors)}\n")
 
@@ -52,10 +57,15 @@ total_lines = total_hit = 0
 rows = []
 for fn, name in sorted(FILES.items()):
     code = compile(Path(fn).read_text(encoding="utf-8"), fn, "exec")
-    executable = {ln for _, ln in dis.findlinestarts(code)}
-    for const in code.co_consts:
-        if isinstance(const, types.CodeType):
-            executable |= {ln for _, ln in dis.findlinestarts(const)}
+    executable: set[int] = set()
+
+    def walk(c):
+        executable.update(ln for _, ln in dis.findlinestarts(c))
+        for const in c.co_consts:
+            if isinstance(const, types.CodeType):
+                walk(const)
+
+    walk(code)
     executed = hits[fn] & executable
     total_lines += len(executable)
     total_hit += len(executed)
