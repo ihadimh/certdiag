@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import json
+import ctypes
 import os
 import subprocess
 import threading
@@ -711,6 +712,37 @@ def open_url(url: str) -> str:
     return "default"
 
 
+def _browser_running() -> bool:
+    """看 Edge/Chrome 是否真的起来了。检测失败就当它起来了，别乱弹框。"""
+    for image in ("msedge.exe", "chrome.exe"):
+        try:
+            out = subprocess.run(
+                ["tasklist", "/FI", f"IMAGENAME eq {image}"],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), timeout=5).stdout
+        except Exception:  # noqa: BLE001
+            return True
+        if image in out.lower():
+            return True
+    return False
+
+
+def _notify_url(url: str) -> None:
+    """浏览器没起来时，用系统弹窗把地址显示出来。"""
+    try:
+        ctypes.windll.user32.MessageBoxW(
+            0, f"界面已启动，请用浏览器打开：\n\n{url}", "certdiag", 0x40)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _open_and_notify(url: str) -> None:
+    open_url(url)
+    time.sleep(3)
+    if not _browser_running():
+        _notify_url(url)
+
+
 def serve(port: int = 8765, open_browser: bool = True, block: bool = True,
           initial_path: str | None = None):
     import errno
@@ -737,7 +769,7 @@ def serve(port: int = 8765, open_browser: bool = True, block: bool = True,
             url = _url(port)
             _say(f"检测到已有实例，直接打开：{url}")
             if open_browser:
-                open_url(url)
+                _open_and_notify(url)
             return None
         raise
     httpd.daemon_threads = True
@@ -745,7 +777,7 @@ def serve(port: int = 8765, open_browser: bool = True, block: bool = True,
     _say(f"certdiag 界面已启动：{url}")
     _say("按 Ctrl+C 退出。")
     if open_browser:
-        threading.Timer(0.6, lambda: open_url(url)).start()
+        threading.Timer(0.6, lambda: _open_and_notify(url)).start()
     if block:
         try:
             httpd.serve_forever()

@@ -93,3 +93,29 @@ class TestOpenUrl(unittest.TestCase):
              mock.patch.object(ui.threading, "Thread") as th:
             self.assertEqual(ui.open_url("http://127.0.0.1:1/"), "default")
         th.assert_called_once()
+
+
+class TestOpenNotify(unittest.TestCase):
+    def test_message_box_when_no_browser(self):
+        from unittest import mock
+
+        import certdiag.ui as ui
+
+        with mock.patch.object(ui, "open_url"), \
+             mock.patch.object(ui.time, "sleep"), \
+             mock.patch.object(ui, "_browser_running", return_value=False), \
+             mock.patch.object(ui, "_notify_url") as box:
+            ui._open_and_notify("http://127.0.0.1:1/")
+        box.assert_called_once()
+
+    def test_no_message_box_when_browser_runs(self):
+        from unittest import mock
+
+        import certdiag.ui as ui
+
+        with mock.patch.object(ui, "open_url"), \
+             mock.patch.object(ui.time, "sleep"), \
+             mock.patch.object(ui, "_browser_running", return_value=True), \
+             mock.patch.object(ui, "_notify_url") as box:
+            ui._open_and_notify("http://127.0.0.1:1/")
+        box.assert_not_called()
