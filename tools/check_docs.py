@@ -95,13 +95,16 @@ def check_flags() -> None:
         flags |= set(re.findall(r"""["'](--[a-z0-9-]+)["']\s+in\s+(?:sys\.)?argv""", src))
         flags |= set(re.findall(r"""argv\.index\(\s*["'](--[a-z0-9-]+)["']""", src))
 
+    # 文档里会写外部命令的参数（如 sigstore verify identity），它们不是本项目的参数
+    external = {"--certificate", "--signature", "--identity", "--issuer", "--bundle"}
+
     mentioned: dict[str, set[str]] = {}
     for p in DOCS:
         for m in re.findall(r'(?<![\w-])(--[a-z][a-z0-9-]+)', read(p)):
             mentioned.setdefault(m, set()).add(p.name)
 
     for flag, where in sorted(mentioned.items()):
-        if flag not in flags:
+        if flag not in flags and flag not in external:
             fail("B", f"文档提到 `{flag}`，但 CLI 没有这个参数（出现在 {', '.join(sorted(where))}）")
     ok("B", f"文档提到的 {len(mentioned)} 个参数全部存在（CLI 共 {len(flags)} 个）")
 

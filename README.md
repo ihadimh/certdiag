@@ -23,7 +23,7 @@
 
 *▲ 图形界面：填路径或把文件拖进来，直接给分类、置信度与依据*
 
-📌 [能做什么、不能做什么](docs/CAPABILITIES.md) · [维护与验证](docs/MAINTAINING.md) · [设计决策](docs/DECISIONS.md) · [已知问题](docs/KNOWN_ISSUES.md) · [真实路径审计](docs/REAL-PATH-REPORT.md) · [虚拟机验收](docs/vm-test-report.md) · [贡献指南](CONTRIBUTING.md) · [代码审计](docs/AUDIT.md) · [置信度与边界](docs/CONFIDENCE.md) · [常见错误](docs/ERRORS.md) · [GitHub Action](docs/GITHUB_ACTION.md)
+📌 [能做什么、不能做什么](docs/CAPABILITIES.md) · [维护与验证](docs/MAINTAINING.md) · [设计决策](docs/DECISIONS.md) · [已知问题](docs/KNOWN_ISSUES.md) · [真实路径审计](docs/REAL-PATH-REPORT.md) · [虚拟机验收](docs/vm-test-report.md) · [贡献指南](CONTRIBUTING.md) · [代码审计](docs/AUDIT.md) · [置信度与边界](docs/CONFIDENCE.md) · [常见错误](docs/ERRORS.md) · [GitHub Action](docs/GITHUB_ACTION.md) · [发布签名与校验](docs/RELEASE_SIGNING.md)
 
 📖 想看"为什么签名会误判"的完整故事：[Windows 提示"签名无效"，可能根本不是签名的问题](docs/article-signature-misdiagnosis.md)
 

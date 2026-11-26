@@ -1,0 +1,32 @@
+name: action-selftest
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  run-action:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 用本仓库的 Action 诊断系统文件
+        uses: ./
+        with:
+          paths: C:\Windows\System32\cmd.exe
+          fail-on: invalid
+          args: "--offline --no-probe"
+
+      - name: 校验 SARIF
+        shell: pwsh
+        run: |
+          if (-not (Test-Path certdiag.sarif)) { throw "SARIF 没有生成" }
+          $j = Get-Content certdiag.sarif -Raw | ConvertFrom-Json
+          if ($j.version -ne "2.1.0") { throw "SARIF 版本不对：$($j.version)" }
+          if ($j.runs[0].tool.driver.name -ne "certdiag") { throw "tool.driver.name 不对" }
+          Write-Host "SARIF ok: results=$($j.runs[0].results.Count)"
