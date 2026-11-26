@@ -1,0 +1,33 @@
+name: certdiag
+description: Windows 代码签名归因（只读）；输出 JSON / SARIF，区分"签名坏了"和"查不到"
+author: ihadimh
+branding:
+  icon: shield
+  color: blue
+
+inputs:
+  paths:
+    description: 要诊断的文件或目录（多个用空格分隔；含空格请加引号）
+    required: true
+  fail-on:
+    description: 退出码策略 invalid / unknown / none
+    required: false
+    default: invalid
+  args:
+    description: 额外参数，例如 "--no-probe --strict"
+    required: false
+    default: "--no-probe"
+  sarif:
+    description: SARIF 输出路径
+    required: false
+    default: certdiag.sarif
+
+runs:
+  using: composite
+  steps:
+    - name: 诊断
+      shell: pwsh
+      run: |
+        # 直接用 action 自身源码目录，不需要 pip 安装或联网
+        $env:PYTHONPATH = "${{ github.action_path }}"
+        python -m certdiag ${{ inputs.paths }} --fail-on ${{ inputs.fail-on }} --sarif "${{ inputs.sarif }}" ${{ inputs.args }}

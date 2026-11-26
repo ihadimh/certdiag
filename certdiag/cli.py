@@ -19,6 +19,7 @@ from .catalog import find_catalog
 from .collect import close as close_worker, collect
 from .probe import probe_all
 from .report import build_report, dump_json, render_console, render_markdown
+from .sarif import dump_sarif
 from . import revoke as revoke_policy
 from . import evidence as evidence_layer
 from .pe import inspect as pe_inspect, looks_like_pe_name
@@ -364,6 +365,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("paths", nargs="*", help="要诊断的 exe/dll/sys 文件或目录")
     ap.add_argument("--json", metavar="FILE", help="把结构化报告写到 JSON")
     ap.add_argument("--md", metavar="FILE", help="把可读报告写到 Markdown")
+    ap.add_argument("--sarif", metavar="FILE", help="把 invalid/unknown 写成 SARIF（供 Code Scanning 使用）")
     ap.add_argument("--offline", action="store_true", help="离线模式：不发起任何网络请求")
     ap.add_argument("--no-probe", action="store_true", help="不探测 CRL/OCSP 连通性")
     ap.add_argument("--catalog", action="store_true",
@@ -488,6 +490,14 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[错误] 无法写入 Markdown 报告：{args.md} — {e}", file=sys.stderr)
             return EXIT_ERROR
         print(f"Markdown 报告已写入：{args.md}（{len(shown)} 条）")
+    if args.sarif:
+        from . import __version__ as _ver
+        try:
+            dump_sarif(shown, _ver, args.sarif)
+        except OSError as e:
+            print(f"[错误] 无法写入 SARIF：{args.sarif} — {e}", file=sys.stderr)
+            return EXIT_ERROR
+        print(f"SARIF 已写入：{args.sarif}（{len(shown)} 条）")
 
     if failed:
         print(f"\n {len(failed)} 个文件诊断失败（工具自身出错，不是文件的问题）", file=sys.stderr)

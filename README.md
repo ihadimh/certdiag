@@ -23,7 +23,7 @@
 
 *▲ 图形界面：填路径或把文件拖进来，直接给分类、置信度与依据*
 
-📌 [能做什么、不能做什么](docs/CAPABILITIES.md) · [维护与验证](docs/MAINTAINING.md) · [设计决策](docs/DECISIONS.md) · [已知问题](docs/KNOWN_ISSUES.md) · [真实路径审计](docs/REAL-PATH-REPORT.md) · [虚拟机验收](docs/vm-test-report.md) · [贡献指南](CONTRIBUTING.md) · [代码审计](docs/AUDIT.md)
+📌 [能做什么、不能做什么](docs/CAPABILITIES.md) · [维护与验证](docs/MAINTAINING.md) · [设计决策](docs/DECISIONS.md) · [已知问题](docs/KNOWN_ISSUES.md) · [真实路径审计](docs/REAL-PATH-REPORT.md) · [虚拟机验收](docs/vm-test-report.md) · [贡献指南](CONTRIBUTING.md) · [代码审计](docs/AUDIT.md) · [置信度与边界](docs/CONFIDENCE.md) · [常见错误](docs/ERRORS.md) · [GitHub Action](docs/GITHUB_ACTION.md)
 
 📖 想看"为什么签名会误判"的完整故事：[Windows 提示"签名无效"，可能根本不是签名的问题](docs/article-signature-misdiagnosis.md)
 
@@ -97,8 +97,8 @@ python -m certdiag "C:\Program Files\XX\app.exe"
 # 看它每一步是怎么判断的（学习 / 排错用）
 python -m certdiag app.exe --trace
 
-# 生成 Markdown 与 JSON 报告
-python -m certdiag app.exe --md report.md --json report.json
+# 生成 Markdown / JSON / SARIF 报告
+python -m certdiag app.exe --md report.md --json report.json --sarif report.sarif
 
 # 离线模式：不发任何网络请求（只看链与有效期）
 python -m certdiag app.exe --offline
@@ -114,6 +114,20 @@ python -m certdiag --ui
 ```
 
 环境要求：Windows + PowerShell（系统自带）+ Python 3.10+，**无第三方依赖**。
+
+## 作为库使用
+
+```python
+from certdiag import attribute
+
+rep = attribute(r"C:\Program Files\XX\app.exe", offline=True)
+print(rep["diagnosis"]["verdict"])      # valid / invalid / unknown
+print(rep["diagnosis"]["category"])     # catalog_only_trust …
+print(rep["diagnosis"]["not_checked"])  # 没验证的项
+```
+
+`attribute()` 返回与 `--json` 相同结构的字典。默认 `revoke="cache"`（可能读系统缓存）；
+完全不想碰网络/子进程时传 `offline=True`。纯标准库，无第三方依赖。
 
 ## 输出示例
 
@@ -369,7 +383,7 @@ certdiag/
 │   ├── report.py     # JSON / Markdown / 终端
 │   ├── ui.py         # 本地 Web 界面（http.server + 单页）
 │   └── cli.py        # 命令行
-├── tests/                # 280 个用例（含 Windows API 集成测试）
+├── tests/                # 286 个用例（含 Windows API 集成测试）
 ├── samples/          # 样本生成脚本（有效 / 篡改）
 ├── docs/             # 截图 + rules.json + 技术文章
 ├── verify.py         # 一键自检
@@ -392,10 +406,10 @@ certdiag/
 
 ```bash
 python -m unittest discover -s tests -v
-# Ran 280 tests ... OK
+# Ran 286 tests ... OK
 
 python tools/ui_selftest.py          # 界面 12 项 HTTP 自检
-python verify.py                     # 280 个测试 + 3 个真实场景
+python verify.py                     # 286 个测试 + 3 个真实场景
 ```
 
 测试固定的不变量：
@@ -643,7 +657,38 @@ python -m certdiag "C:\Program Files\XX" --only invalid --json bad.json
 python verify.py --report env.md
 ```
 
-生成的报告包含 Python 版本、PowerShell 路径与版本、`Get-AuthenticodeSignature` / `Get-FileHash` 是否可用、代理状态、可选依赖情况，以及 280 个测试的结果——**CI 抓到的三个环境差异 bug，这份报告能一次性暴露**。
+生成的报告包含 Python 版本、PowerShell 路径与版本、`Get-AuthenticodeSignature` / `Get-FileHash` 是否可用、代理状态、可选依赖情况，以及 286 个测试的结果——**CI 抓到的三个环境差异 bug，这份报告能一次性暴露**。
+
+## 在 CI / GitHub Actions 中使用
+
+仓库自带 `action.yml`，在 Windows runner 上直接调用，并输出 SARIF 供 Code Scanning 消费：
+
+```yaml
+- uses: actions/checkout@v4
+
+- uses: ihadimh/certdiag@v2.4.0
+  with:
+    paths: dist
+    fail-on: invalid
+    args: "--no-probe"
+
+- uses: github/codeql-action/upload-sarif@v3
+  if: always()
+  with:
+    sarif_file: certdiag.sarif
+```
+
+本地等价命令：
+
+```powershell
+python -m certdiag .\dist --no-probe --fail-on invalid --sarif certdiag.sarif
+```
+
+SARIF 里只有 `invalid`（error）和 `unknown`（warning），`valid` 不会进告警列表。
+输入参数与局限见 [docs/GITHUB_ACTION.md](docs/GITHUB_ACTION.md)。
+
+**门禁建议**：`medium` / `unknown` 只触发人工复核，不要自动放行；
+每个分类到底证明了什么，见 [docs/CONFIDENCE.md](docs/CONFIDENCE.md)。
 
 ## 配套技能（给 agent 用）
 
