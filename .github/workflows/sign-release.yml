@@ -38,9 +38,9 @@ jobs:
             dist/certdiag-portable.zip
             dist/SHA256SUMS.txt
 
-      - name: 上传签名与证书
+      - name: 上传签名 bundle
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload "${{ inputs.tag }}" dist/*.sig dist/*.crt --clobber
-          gh release upload "${{ inputs.tag }}" dist/*.sigstore.json --clobber || true
+          # sigstore-python v3 只产出 .sigstore.json（内含证书与签名）
+          gh release upload "${{ inputs.tag }}" dist/*.sigstore.json --clobber

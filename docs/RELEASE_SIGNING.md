@@ -5,7 +5,7 @@
 | 项 | 状态 |
 |---|---|
 | SHA256 校验和 | ✅ 每个 release 附带 `SHA256SUMS.txt` |
-| Sigstore 无密钥签名 | ✅ 手动 workflow（`.github/workflows/sign-release.yml`） |
+| Sigstore 无密钥签名 | ✅ 手动 workflow（`.github/workflows/sign-release.yml`），产物 `.sigstore.json` |
 | Windows Authenticode 签名 | ⏳ 未签（需要证书，见下） |
 
 ## 为什么还没有 Authenticode
@@ -28,14 +28,14 @@ Get-FileHash certdiag-portable.zip -Algorithm SHA256
 
 ## 验证 Sigstore 签名
 
-维护者手动触发 `sign-release` workflow 后，release 里会出现 `.sig` 与 `.crt`：
+维护者手动触发 `sign-release` workflow 后，release 里会出现
+`certdiag-portable.zip.sigstore.json`（sigstore-python v3 的 bundle，内含证书与签名）：
 
 ```bash
 sigstore verify identity \
-  --certificate certdiag-portable.zip.crt \
-  --signature  certdiag-portable.zip.sig \
-  --identity   "https://github.com/ihadimh/certdiag/.github/workflows/sign-release.yml@refs/heads/main" \
-  --issuer     "https://token.actions.githubusercontent.com" \
+  --bundle   certdiag-portable.zip.sigstore.json \
+  --identity "https://github.com/ihadimh/certdiag/.github/workflows/sign-release.yml@refs/heads/main" \
+  --issuer   "https://token.actions.githubusercontent.com" \
   certdiag-portable.zip
 ```
 

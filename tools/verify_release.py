@@ -60,7 +60,7 @@ def main(argv: list[str] | None = None) -> int:
     print(("[OK] " if ok else "[失败] ") + msg)
     if ok:
         print("\n下一步（可选）：验证 Sigstore 签名")
-        print("  sigstore verify identity --certificate cert.pem --signature 包.sig \\")
+        print("  sigstore verify identity --bundle 包.zip.sigstore.json \\")
         print("      --identity <sign-release.yml 的 workflow 身份> 包.zip")
     return 0 if ok else 1
 
