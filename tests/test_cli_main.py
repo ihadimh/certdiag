@@ -163,6 +163,14 @@ class TestMainBatch(unittest.TestCase):
 
 @unittest.skipUnless(CMD.exists(), "需要 Windows 系统文件")
 class TestMainArgs(unittest.TestCase):
+    def test_version(self):
+        out = io.StringIO()
+        with self.assertRaises(SystemExit) as cm:
+            with contextlib.redirect_stdout(out):
+                cli.main(["--version"])
+        self.assertEqual(cm.exception.code, 0)
+        self.assertIn("certdiag", out.getvalue())
+
     def test_help_exits_zero(self):
         with self.assertRaises(SystemExit) as cm:
             with contextlib.redirect_stdout(io.StringIO()):

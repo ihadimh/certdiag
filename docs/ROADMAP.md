@@ -12,7 +12,7 @@
 
 | # | 目标 | 内容 | 工作量 | 依赖 | 状态 |
 |---|---|---|---|---|---|
-| M1 | 打包与 API 验证 | 干净 Windows `pip install`；`--version`；semver/弃用策略；wheel | 2–3 天 | 无 | 待做 |
+| M1 | 打包与 API 验证 | 干净 Windows `pip install`；`--version`（已加）；semver/弃用策略；wheel | 2–3 天 | 无 | 进行中 |
 | M2 | 标注语料 + 基准 | 每类 10+ 样本；precision/recall；`docs/BENCHMARK.md` | 1 周 | 真实样本（issue #3） | 待做 |
 | M3 | 时间戳绑定 + TSA 链 | `messageImprint`、TSA EKU、签发时刻链；关键分类升到 `high` | 2–4 周 | ASN.1/CMS + 样本 | 待做 |
 | M4 | 目录完整语义 | `WINTRUST_CATALOG_INFO` 成员校验；明确"信系统"边界 | 1–2 周 | Windows API 细节 | 待做 |

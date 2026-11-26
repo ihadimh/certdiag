@@ -20,6 +20,7 @@ from .collect import close as close_worker, collect
 from .probe import probe_all
 from .report import build_report, dump_json, render_console, render_markdown
 from .sarif import dump_sarif
+from . import __version__
 from . import revoke as revoke_policy
 from . import evidence as evidence_layer
 from .pe import inspect as pe_inspect, looks_like_pe_name
@@ -362,6 +363,9 @@ def main(argv: list[str] | None = None) -> int:
         prog="certdiag",
         description="Windows 代码签名与证书链诊断工具（只读）",
         epilog="退出码：0=全部有效  1=存在无效  2=存在无法判定（--fail-on unknown）  3=运行错误")
+    ap.add_argument("--version", action="version",
+                    version=f"certdiag {__version__}",
+                    help="显示版本号并退出")
     ap.add_argument("paths", nargs="*", help="要诊断的 exe/dll/sys 文件或目录")
     ap.add_argument("--json", metavar="FILE", help="把结构化报告写到 JSON")
     ap.add_argument("--md", metavar="FILE", help="把可读报告写到 Markdown")
