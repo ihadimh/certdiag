@@ -72,6 +72,8 @@ Windows 上签名校验失败时，系统给的往往是一句没用的话：
 **[⬇ 下载最新便携版](https://github.com/ihadimh/certdiag/releases/latest)**（约 11 MB，解压后**双击即用**，自带 Python 运行时）
 
 发布页里的 `certdiag-portable.zip` 永远是最新版，校验值在同页 `SHA256SUMS.txt`。
+每个 release 还附带 `.sigstore.json` 签名（Sigstore 无密钥）；校验方法见 [docs/RELEASE_SIGNING.md](docs/RELEASE_SIGNING.md)。
+本地校验：`python tools/verify_release.py certdiag-portable.zip`
 （早期版本用带版本号的文件名，导致 README 里的链接会过期；现在资产名固定，链接不会失效。）
 
 ```
