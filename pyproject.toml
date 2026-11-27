@@ -17,6 +17,9 @@ classifiers = [
     "Topic :: Security",
 ]
 
+[project.scripts]
+certdiag = "certdiag.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/ihadimh/certdiag"
 Issues = "https://github.com/ihadimh/certdiag/issues"
