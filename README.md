@@ -128,6 +128,13 @@ print(rep["diagnosis"]["category"])     # catalog_only_trust …
 print(rep["diagnosis"]["not_checked"])  # 没验证的项
 ```
 
+从源码安装（可选，CI 已验证）：
+
+```powershell
+pip install .
+certdiag --version
+```
+
 `attribute()` 返回与 `--json` 相同结构的字典。默认 `revoke="cache"`（可能读系统缓存）；
 完全不想碰网络/子进程时传 `offline=True`。纯标准库，无第三方依赖。
 
